@@ -351,7 +351,8 @@ def load_csv_from_dropbox(filename):
         except Exception:
             pass
 
-        path = f"/Cjenici_jucer/{filename}"
+        path = f"/{filename}"
+
 
         metadata, response = dbx.files_download(path)
         return response.content
