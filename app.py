@@ -284,7 +284,6 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi):
         
         df.columns = df.columns.str.strip()
         
-        # Kaufland - pronađi cijenu ako nije definirana
         if config["columns"]["maloprodajna"] is None:
             cijene = [c for c in df.columns if "maloprod" in c.lower()]
             if cijene:
@@ -293,12 +292,10 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi):
                 st.warning(f"{ducan_naziv}: nije pronađena kolona s maloprodajnom cijenom")
                 return rezultati
         
-        # Priprema cijena
         df[config["columns"]["maloprodajna"]] = df[config["columns"]["maloprodajna"]].apply(convert_price)
         if config["columns"]["akcijska"]:
             df[config["columns"]["akcijska"]] = df[config["columns"]["akcijska"]].apply(convert_price)
         
-        # Logika cijene
         if config["price_logic"] == "eurospin":
             df["CIJENA"] = df.apply(
                 lambda x: x[config["columns"]["akcijska"]] if pd.notna(x[config["columns"]["akcijska"]]) and x[config["columns"]["akcijska"]] > 0
@@ -311,7 +308,6 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi):
             df["CIJENA"] = df[config["columns"]["maloprodajna"]].fillna(
                 df[config["columns"]["akcijska"]] if config["columns"]["akcijska"] else pd.NA)
         
-        # Pretraga
         for pojam in pojmovi:
             if not pojam.strip(): continue
             regex = wildcard_to_regex(pojam)
@@ -367,45 +363,37 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # ── Ispravljeni info-box ────────────────────────────────
-    st.markdown("""
-    <div class="info-box" style="padding: 1.2rem; line-height: 1.45;">
-        <p style="font-size: 1rem; font-weight: 600; margin-bottom: 0.8rem;">🔍 Kako pretraživati</p>
-        
-        <p style="font-size: 0.9rem; margin: 0.3rem 0;">Do 6 pojmova</p>
-        
-        <p style="font-size: 0.88rem; font-weight: 500; margin: 0.9rem 0 0.3rem 0;">
-            Bez * → traži na početku naziva
-        </p>
-        <ul style="margin: 0.2rem 0 0.8rem 1.5rem; font-size: 0.86rem; line-height: 1.4; list-style-type: disc; padding-left: 0;">
-            <li style="margin-bottom: 0.2rem;"><strong>mlijeko</strong> → Mlijeko Dukat, Mlijeko fresh...</li>
-            <li style="margin-bottom: 0.2rem;"><strong>nutella</strong> → Nutella, Nutella B-ready...</li>
-            <li><strong>jogurt</strong> → jogurti koji počinju tom riječi</li>
-        </ul>
-        
-        <p style="font-size: 0.88rem; font-weight: 500; margin: 1rem 0 0.3rem 0;">
-            Bilo gdje u nazivu → koristi *
-        </p>
-        <ul style="margin: 0.2rem 0 0.8rem 1.5rem; font-size: 0.86rem; line-height: 1.4; list-style-type: disc; padding-left: 0;">
-            <li style="margin-bottom: 0.2rem;"><strong>*mlijeko*</strong> → sve što ima „mlijeko“</li>
-            <li style="margin-bottom: 0.2rem;"><strong>*nutella*</strong> ili <strong>nutella*</strong> → svi Nutella proizvodi</li>
-            <li><strong>sir ?0%</strong> → sir 20%, 30%, 00%...</li>
-        </ul>
-        
-        <p style="font-size: 0.9rem; font-weight: 500; color: #a5b4fc; margin: 0.9rem 0 0.4rem 0;">
-            💡 Brzi trikovi
-        </p>
-        <ul style="margin: 0.2rem 0 0.4rem 1.5rem; font-size: 0.86rem; line-height: 1.4; list-style-type: disc; padding-left: 0;">
-            <li>*kava* ili *mlijeko 3.5*</li>
-            <li>dukat* ili *dukat*</li>
-            <li>nutella *200g* ili *sir *masni*</li>
-        </ul>
-        
-        <p style="font-size: 0.82rem; color: #94a3b8; margin-top: 0.8rem;">
-            Pretraga ne razlikuje velika/mala slova
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    # ── Ispravljeni info-box (raw string + čisti HTML) ────────────────────────────────
+    st.markdown(r"""
+<div class="info-box" style="padding:1.2rem;line-height:1.45;">
+<p style="font-size:1rem;font-weight:600;margin-bottom:0.8rem;">🔍 Kako pretraživati</p>
+
+<p style="font-size:0.9rem;margin:0.3rem 0;">Do 6 pojmova</p>
+
+<p style="font-size:0.88rem;font-weight:500;margin:0.9rem 0 0.3rem 0;">Bez * → traži na početku naziva</p>
+<ul style="margin:0.2rem 0 0.8rem 1.5rem;font-size:0.86rem;line-height:1.4;list-style-type:disc;padding-left:0;">
+<li style="margin-bottom:0.2rem;"><strong>mlijeko</strong> → Mlijeko Dukat, Mlijeko fresh...</li>
+<li style="margin-bottom:0.2rem;"><strong>nutella</strong> → Nutella, Nutella B-ready...</li>
+<li><strong>jogurt</strong> → jogurti koji počinju tom riječi</li>
+</ul>
+
+<p style="font-size:0.88rem;font-weight:500;margin:1rem 0 0.3rem 0;">Bilo gdje u nazivu → koristi *</p>
+<ul style="margin:0.2rem 0 0.8rem 1.5rem;font-size:0.86rem;line-height:1.4;list-style-type:disc;padding-left:0;">
+<li style="margin-bottom:0.2rem;"><strong>*mlijeko*</strong> → sve što ima „mlijeko“</li>
+<li style="margin-bottom:0.2rem;"><strong>*nutella*</strong> ili <strong>nutella*</strong> → svi Nutella proizvodi</li>
+<li><strong>sir ?0%</strong> → sir 20%, 30%, 00%...</li>
+</ul>
+
+<p style="font-size:0.9rem;font-weight:500;color:#a5b4fc;margin:0.9rem 0 0.4rem 0;">💡 Brzi trikovi</p>
+<ul style="margin:0.2rem 0 0.4rem 1.5rem;font-size:0.86rem;line-height:1.4;list-style-type:disc;padding-left:0;">
+<li>*kava* ili *mlijeko 3.5*</li>
+<li>dukat* ili *dukat*</li>
+<li>nutella *200g* ili *sir *masni*</li>
+</ul>
+
+<p style="font-size:0.82rem;color:#94a3b8;margin-top:0.8rem;">Pretraga ne razlikuje velika/mala slova</p>
+</div>
+""", unsafe_allow_html=True)
 
     st.markdown("### 🔍 Unesite pojmove za pretragu")
     
@@ -449,13 +437,9 @@ def main():
         
         df = pd.DataFrame(svi_rez)
         
-        # Sortiranje po cijeni (najjeftinije prvo)
         df = df.sort_values("Cijena (€)")
-        
-        # Uklanjanje duplikata
         df = df.drop_duplicates(["Trgovački lanac", "Šifra"]).reset_index(drop=True)
         
-        # Željeni redoslijed stupaca za mobilni prikaz
         zeljeni_redoslijed = [
             "Traženi pojam",
             "Naziv proizvoda",
@@ -469,7 +453,6 @@ def main():
         
         df = df[zeljeni_redoslijed]
         
-        # Statistike
         st.markdown('<h2 class="results-header">📊 Rezultati</h2>', unsafe_allow_html=True)
         
         c1, c2, c3 = st.columns(3)
