@@ -363,7 +363,7 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # ── Ispravljeni info-box (raw string + čisti HTML) ────────────────────────────────
+    # ── Ispravljeni info-box ────────────────────────────────
     st.markdown(r"""
 <div class="info-box" style="padding:1.2rem;line-height:1.45;">
 <p style="font-size:1rem;font-weight:600;margin-bottom:0.8rem;">🔍 Kako pretraživati</p>
@@ -464,6 +464,9 @@ def main():
         
         df_show = df.copy()
         df_show["Cijena (€)"] = df_show["Cijena (€)"].apply(lambda x: f"€{x:.2f}" if pd.notna(x) else "")
+        
+        # Popravak šifre: ukloni .0 i zadrži kao čisti string
+        df_show["Šifra"] = df_show["Šifra"].astype(str).str.replace(r'\.0$', '', regex=True)
         
         st.dataframe(
             df_show,
