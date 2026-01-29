@@ -357,8 +357,13 @@ def create_excel_download(df):
 def main():
     st.markdown("""
     <div class="header-container">
-        <h1 class="main-title">🛒 Pretraga Cijena</h1>
-        <p class="subtitle">Najbolje cijene u trgovačkim lancima – Zaprešić</p>
+    <h1 class="main-title">🛒 Pretraga Cijena</h1>
+    <p class="subtitle">
+        Najbolje cijene u trgovačkim lancima – Zaprešić<br>
+        <span style="font-size: 0.9rem; opacity: 0.9;">
+            (samo kategorije: hrana, piće, kozmetika, sredstva za čišćenje, toaletne potrepštine i proizvodi za kućanstvo)
+        </span>
+    </p>
     </div>
     """, unsafe_allow_html=True)
     
