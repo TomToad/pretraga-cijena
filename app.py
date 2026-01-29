@@ -367,7 +367,7 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # ── Smanjeni info-box ────────────────────────────────
+    # ── Ispravljeni info-box ────────────────────────────────
     st.markdown("""
     <div class="info-box" style="padding: 1.2rem; line-height: 1.45;">
         <p style="font-size: 1rem; font-weight: 600; margin-bottom: 0.8rem;">🔍 Kako pretraživati</p>
@@ -455,7 +455,7 @@ def main():
         # Uklanjanje duplikata
         df = df.drop_duplicates(["Trgovački lanac", "Šifra"]).reset_index(drop=True)
         
-        # Željeni redoslijed stupaca
+        # Željeni redoslijed stupaca za mobilni prikaz
         zeljeni_redoslijed = [
             "Traženi pojam",
             "Naziv proizvoda",
@@ -467,7 +467,6 @@ def main():
             "Kategorija"
         ]
         
-        # Preuredi stupce
         df = df[zeljeni_redoslijed]
         
         # Statistike
