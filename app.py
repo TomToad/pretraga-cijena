@@ -263,7 +263,7 @@ def load_csv_from_dropbox(filename):
             app_secret=st.secrets["DROPBOX_APP_SECRET"], 
             oauth2_refresh_token=st.secrets["DROPBOX_REFRESH_TOKEN"]
 )
-)
+
         _, response = dbx.files_download(f"/{filename}")
         return response.content
     except AuthError as e:
