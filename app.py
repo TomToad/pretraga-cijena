@@ -259,9 +259,10 @@ def convert_price(val):
 def load_csv_from_dropbox(filename):
     try:
         dbx = dropbox.Dropbox(
-            app_key=st.secrets["dnofhiuqqeqac7b"],
-            app_secret=st.secrets["5a244814ohkko2k"],
-            oauth2_refresh_token=st.secrets["fZGW8pa-UjsAAAAAAAAAMBe-rEsN_O2wAtmsIwuo2lM"]
+            app_key=st.secrets["DROPBOX_APP_KEY"],          
+            app_secret=st.secrets["DROPBOX_APP_SECRET"], 
+            oauth2_refresh_token=st.secrets["DROPBOX_REFRESH_TOKEN"]
+)
 )
         _, response = dbx.files_download(f"/{filename}")
         return response.content
