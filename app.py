@@ -338,38 +338,15 @@ def convert_price(val):
     except:
         return None
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600)  # Cache za 1 sat
 def load_csv_from_dropbox(filename):
+    """Učitava CSV s Dropboxa"""
     try:
         dbx = dropbox.Dropbox(st.secrets["DROPBOX_ACCESS_TOKEN"])
-
-        # 🔍 Debug – vidi što Dropbox stvarno vidi
-        try:
-            folder = dbx.files_list_folder("")
-            available = [e.name for e in folder.entries]
-            st.info(f"📂 Dropbox root sadrži: {available}")
-        except Exception:
-            pass
-
-        path = f"/{filename}"
-
-
-        metadata, response = dbx.files_download(path)
+        _, response = dbx.files_download(f"/{filename}")
         return response.content
-
-    except AuthError:
-        st.error("❌ Dropbox token nije valjan ili je istekao.")
-        return None
-
-    except dropbox.exceptions.ApiError as e:
-        if "not_found" in str(e):
-            st.error(f"❌ Datoteka ne postoji: {filename}")
-        else:
-            st.error(f"❌ Dropbox greška: {e}")
-        return None
-
     except Exception as e:
-        st.error(f"❌ Neočekivana greška: {e}")
+        st.error(f"❌ Greška pri učitavanju {filename}: {str(e)}")
         return None
 
 @st.cache_data(ttl=3600)
