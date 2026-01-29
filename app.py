@@ -258,7 +258,11 @@ def convert_price(val):
 @st.cache_data(ttl=3600)
 def load_csv_from_dropbox(filename):
     try:
-        dbx = dropbox.Dropbox(st.secrets["DROPBOX_ACCESS_TOKEN"])
+        dbx = dropbox.Dropbox(
+            app_key=st.secrets["DROPBOX_APP_KEY"],
+            app_secret=st.secrets["DROPBOX_APP_SECRET"],
+            oauth2_refresh_token=st.secrets["DROPBOX_REFRESH_TOKEN"]
+)
         _, response = dbx.files_download(f"/{filename}")
         return response.content
     except AuthError as e:
