@@ -357,55 +357,55 @@ def create_excel_download(df):
 def main():
     st.markdown("""
     <div class="header-container">
-    <h1 class="main-title">🛒 Pretraga Cijena</h1>
-    <p class="subtitle">
-        Najbolje cijene u trgovačkim lancima – Zaprešić<br>
-        <span style="font-size: 0.9rem; opacity: 0.9;">
-            (samo kategorije: hrana, piće, kozmetika, sredstva za čišćenje, toaletne potrepštine i proizvodi za kućanstvo)
-        </span>
-    </p>
+        <h1 class="main-title">🛒 Pretraga Cijena</h1>
+        <p class="subtitle">
+            Najbolje cijene u trgovačkim lancima – Zaprešić<br>
+            <span style="font-size: 0.9rem; opacity: 0.9;">
+                (samo kategorije: hrana, piće, kozmetika, sredstva za čišćenje, toaletne potrepštine i proizvodi za kućanstvo)
+            </span>
+        </p>
     </div>
     """, unsafe_allow_html=True)
     
     # ── Smanjeni info-box ────────────────────────────────
     st.markdown("""
     <div class="info-box" style="padding: 1.2rem; line-height: 1.45;">
-    <p style="font-size: 1rem; font-weight: 600; margin-bottom: 0.8rem;">🔍 Kako pretraživati</p>
-    
-    <p style="font-size: 0.9rem; margin: 0.3rem 0;">Do 6 pojmova</p>
-    
-    <p style="font-size: 0.88rem; font-weight: 500; margin: 0.9rem 0 0.3rem 0;">
-        Bez * → traži na početku naziva
-    </p>
-    <ul style="margin: 0.2rem 0 0.8rem 1.5rem; font-size: 0.86rem; line-height: 1.4; list-style-type: disc; padding-left: 0;">
-        <li style="margin-bottom: 0.2rem;"><strong>mlijeko</strong> → Mlijeko Dukat, Mlijeko fresh...</li>
-        <li style="margin-bottom: 0.2rem;"><strong>nutella</strong> → Nutella, Nutella B-ready...</li>
-        <li><strong>jogurt</strong> → jogurti koji počinju tom riječi</li>
-    </ul>
-    
-    <p style="font-size: 0.88rem; font-weight: 500; margin: 1rem 0 0.3rem 0;">
-        Bilo gdje u nazivu → koristi *
-    </p>
-    <ul style="margin: 0.2rem 0 0.8rem 1.5rem; font-size: 0.86rem; line-height: 1.4; list-style-type: disc; padding-left: 0;">
-        <li style="margin-bottom: 0.2rem;"><strong>*mlijeko*</strong> → sve što ima „mlijeko“</li>
-        <li style="margin-bottom: 0.2rem;"><strong>*nutella*</strong> ili <strong>nutella*</strong> → svi Nutella proizvodi</li>
-        <li><strong>sir ?0%</strong> → sir 20%, 30%, 00%...</li>
-    </ul>
-    
-    <p style="font-size: 0.9rem; font-weight: 500; color: #a5b4fc; margin: 0.9rem 0 0.4rem 0;">
-        💡 Brzi trikovi
-    </p>
-    <ul style="margin: 0.2rem 0 0.4rem 1.5rem; font-size: 0.86rem; line-height: 1.4; list-style-type: disc; padding-left: 0;">
-        <li>*kava* ili *mlijeko 3.5*</li>
-        <li>dukat* ili *dukat*</li>
-        <li>nutella *200g* ili *sir *masni*</li>
-    </ul>
-    
-    <p style="font-size: 0.82rem; color: #94a3b8; margin-top: 0.8rem;">
-        Pretraga ne razlikuje velika/mala slova
-    </p>
+        <p style="font-size: 1rem; font-weight: 600; margin-bottom: 0.8rem;">🔍 Kako pretraživati</p>
+        
+        <p style="font-size: 0.9rem; margin: 0.3rem 0;">Do 6 pojmova</p>
+        
+        <p style="font-size: 0.88rem; font-weight: 500; margin: 0.9rem 0 0.3rem 0;">
+            Bez * → traži na početku naziva
+        </p>
+        <ul style="margin: 0.2rem 0 0.8rem 1.5rem; font-size: 0.86rem; line-height: 1.4; list-style-type: disc; padding-left: 0;">
+            <li style="margin-bottom: 0.2rem;"><strong>mlijeko</strong> → Mlijeko Dukat, Mlijeko fresh...</li>
+            <li style="margin-bottom: 0.2rem;"><strong>nutella</strong> → Nutella, Nutella B-ready...</li>
+            <li><strong>jogurt</strong> → jogurti koji počinju tom riječi</li>
+        </ul>
+        
+        <p style="font-size: 0.88rem; font-weight: 500; margin: 1rem 0 0.3rem 0;">
+            Bilo gdje u nazivu → koristi *
+        </p>
+        <ul style="margin: 0.2rem 0 0.8rem 1.5rem; font-size: 0.86rem; line-height: 1.4; list-style-type: disc; padding-left: 0;">
+            <li style="margin-bottom: 0.2rem;"><strong>*mlijeko*</strong> → sve što ima „mlijeko“</li>
+            <li style="margin-bottom: 0.2rem;"><strong>*nutella*</strong> ili <strong>nutella*</strong> → svi Nutella proizvodi</li>
+            <li><strong>sir ?0%</strong> → sir 20%, 30%, 00%...</li>
+        </ul>
+        
+        <p style="font-size: 0.9rem; font-weight: 500; color: #a5b4fc; margin: 0.9rem 0 0.4rem 0;">
+            💡 Brzi trikovi
+        </p>
+        <ul style="margin: 0.2rem 0 0.4rem 1.5rem; font-size: 0.86rem; line-height: 1.4; list-style-type: disc; padding-left: 0;">
+            <li>*kava* ili *mlijeko 3.5*</li>
+            <li>dukat* ili *dukat*</li>
+            <li>nutella *200g* ili *sir *masni*</li>
+        </ul>
+        
+        <p style="font-size: 0.82rem; color: #94a3b8; margin-top: 0.8rem;">
+            Pretraga ne razlikuje velika/mala slova
+        </p>
     </div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
     st.markdown("### 🔍 Unesite pojmove za pretragu")
     
@@ -448,7 +448,27 @@ def main():
             return
         
         df = pd.DataFrame(svi_rez)
-        df = df.sort_values("Cijena (€)").drop_duplicates(["Trgovački lanac", "Šifra"]).reset_index(drop=True)
+        
+        # Sortiranje po cijeni (najjeftinije prvo)
+        df = df.sort_values("Cijena (€)")
+        
+        # Uklanjanje duplikata
+        df = df.drop_duplicates(["Trgovački lanac", "Šifra"]).reset_index(drop=True)
+        
+        # Željeni redoslijed stupaca
+        zeljeni_redoslijed = [
+            "Traženi pojam",
+            "Naziv proizvoda",
+            "Jedinica mjere",
+            "Cijena (€)",
+            "Trgovački lanac",
+            "Šifra",
+            "Barkod",
+            "Kategorija"
+        ]
+        
+        # Preuredi stupce
+        df = df[zeljeni_redoslijed]
         
         # Statistike
         st.markdown('<h2 class="results-header">📊 Rezultati</h2>', unsafe_allow_html=True)
@@ -463,7 +483,19 @@ def main():
         df_show = df.copy()
         df_show["Cijena (€)"] = df_show["Cijena (€)"].apply(lambda x: f"€{x:.2f}" if pd.notna(x) else "")
         
-        st.dataframe(df_show, use_container_width=True, height=520, hide_index=True)
+        st.dataframe(
+            df_show,
+            use_container_width=True,
+            height=520,
+            hide_index=True,
+            column_config={
+                "Naziv proizvoda": st.column_config.TextColumn("Naziv", width="medium"),
+                "Cijena (€)": st.column_config.TextColumn("Cijena", width="small"),
+                "Trgovački lanac": st.column_config.TextColumn("Lanac", width="small"),
+                "Jedinica mjere": st.column_config.TextColumn("Jedinica", width="small"),
+                "Traženi pojam": st.column_config.TextColumn("Pojam", width="small"),
+            }
+        )
         
         st.markdown("### 💾 Preuzmi rezultate")
         excel = create_excel_download(df)
