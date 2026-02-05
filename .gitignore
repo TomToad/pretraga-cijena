@@ -35,3 +35,9 @@ upload_log.txt
 # Temporary files
 *.tmp
 *.bak
+app_old.py
+brisi_odmah.py
+brisi_odmeh2.py
+get_dropbox_token.py
+slanje_cjenika.py
+app_old1.py
