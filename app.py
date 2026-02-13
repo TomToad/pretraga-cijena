@@ -4,10 +4,16 @@ import re
 from io import BytesIO, StringIO
 import dropbox
 from dropbox.exceptions import AuthError
-from PIL import Image
-import cv2
-import numpy as np
-from pyzbar import pyzbar
+
+# Try to import barcode scanning libraries (optional)
+try:
+    from PIL import Image
+    import cv2
+    import numpy as np
+    from pyzbar import pyzbar
+    BARCODE_SCANNER_AVAILABLE = True
+except ImportError:
+    BARCODE_SCANNER_AVAILABLE = False
 
 # ──────────────────────────────────────────────────────────────────────
 # KONFIGURACIJA
@@ -267,7 +273,10 @@ DUCANI_CONFIG = {
 # ──────────────────────────────────────────────────────────────────────
 
 def decode_barcode_from_image(image):
-    """Dekodira barkod sa slike koristeći pyzbar"""
+    """Dekodira barkod sa slike koristeći pyzbar (samo ako je dostupan)"""
+    if not BARCODE_SCANNER_AVAILABLE:
+        return None
+    
     try:
         # Convert PIL Image to numpy array
         img_array = np.array(image)
@@ -497,21 +506,25 @@ def main():
         key="barkod"
     )
     
-    # Camera input for barcode scanning
-    camera_photo = st.camera_input("📷 Slikaj barkod kamerom")
-    
-    if camera_photo is not None:
-        # Decode barcode from image
-        image = Image.open(camera_photo)
-        with st.spinner("Dekodiranje barkoda..."):
-            barcode_data = decode_barcode_from_image(image)
+    # Camera input for barcode scanning (SAMO ako je dostupan scanner)
+    if BARCODE_SCANNER_AVAILABLE:
+        st.markdown("**📱 Skeniranje barkoda kamerom (samo na mobitelu):**")
+        camera_photo = st.camera_input("Slikaj barkod proizvoda")
         
-        if barcode_data:
-            st.session_state.scanned_barcode = barcode_data
-            st.markdown(f'<div class="success-msg">✓ Barkod dekodiran: {barcode_data}</div>', unsafe_allow_html=True)
-            st.rerun()
-        else:
-            st.error("Nisam uspio pročitati barkod. Pokušaj ponovno s boljim osvjetljenjem ili udaljenošću.")
+        if camera_photo is not None:
+            # Decode barcode from image
+            image = Image.open(camera_photo)
+            with st.spinner("Dekodiranje barkoda..."):
+                barcode_data = decode_barcode_from_image(image)
+            
+            if barcode_data:
+                st.session_state.scanned_barcode = barcode_data
+                st.markdown(f'<div class="success-msg">✓ Barkod dekodiran: {barcode_data}</div>', unsafe_allow_html=True)
+                st.rerun()
+            else:
+                st.error("❌ Nisam uspio pročitati barkod. Pokušaj ponovno s boljim osvjetljenjem ili na udaljenosti 10-15cm.")
+    else:
+        st.info("📱 Skeniranje barkoda kamerom dostupno samo na mobitelu. Na desktopu upiši barkod ručno.")
     
     st.markdown('</div>', unsafe_allow_html=True)
     
