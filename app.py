@@ -756,21 +756,18 @@ def main():
     st.markdown('<div class="barcode-box">', unsafe_allow_html=True)
     st.markdown("### 🔢 Pretraga po barkodu")
     
-    col_barcode, col_scanner = st.columns([3, 1])
+    barkod_input = st.text_input(
+        "Unesite ili skenirajte barkod proizvoda",
+        value=st.session_state.scanned_barcode,
+        placeholder="npr. 3017620422003",
+        help="Točna pretraga po barkodu - pronalazi samo taj proizvod",
+        key="barkod"
+    )
     
-    with col_barcode:
-        barkod_input = st.text_input(
-            "Unesite ili skenirajte barkod proizvoda",
-            value=st.session_state.scanned_barcode,
-            placeholder="npr. 3017620422003",
-            help="Točna pretraga po barkodu - pronalazi samo taj proizvod",
-            key="barkod"
-        )
-    
-    with col_scanner:
-        if st.button("📷 Skeniraj", use_container_width=True, key="scan_btn", type="primary"):
-            st.session_state.show_scanner = True
-            st.rerun()
+    # Scanner button full width below input
+    if st.button("📷 Skeniraj Barkod Kamerom", use_container_width=True, key="scan_btn", type="primary"):
+        st.session_state.show_scanner = True
+        st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
     
