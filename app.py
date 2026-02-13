@@ -4,16 +4,7 @@ import re
 from io import BytesIO, StringIO
 import dropbox
 from dropbox.exceptions import AuthError
-
-# Try to import barcode scanning libraries (optional)
-try:
-    from PIL import Image
-    import cv2
-    import numpy as np
-    from pyzbar import pyzbar
-    BARCODE_SCANNER_AVAILABLE = True
-except ImportError:
-    BARCODE_SCANNER_AVAILABLE = False
+import streamlit.components.v1 as components
 
 # ──────────────────────────────────────────────────────────────────────
 # KONFIGURACIJA
@@ -159,14 +150,22 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
     
-    .success-msg {
-        background: #43cea2;
-        color: white;
-        padding: 15px;
-        border-radius: 8px;
-        margin: 10px 0;
-        font-weight: bold;
-        text-align: center;
+    .scanner-btn {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 10px 20px !important;
+        font-weight: 600 !important;
+        font-size: 1.1em !important;
+        cursor: pointer !important;
+        transition: all 0.3s !important;
+        margin-top: 8px !important;
+    }
+    
+    .scanner-btn:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 12px rgba(240, 147, 251, 0.4) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -269,34 +268,237 @@ DUCANI_CONFIG = {
 }
 
 # ──────────────────────────────────────────────────────────────────────
-# HELPER FUNKCIJE
+# BARCODE SCANNER COMPONENT
 # ──────────────────────────────────────────────────────────────────────
 
-def decode_barcode_from_image(image):
-    """Dekodira barkod sa slike koristeći pyzbar (samo ako je dostupan)"""
-    if not BARCODE_SCANNER_AVAILABLE:
-        return None
+def barcode_scanner_component():
+    """Live barcode scanner component using html5-qrcode"""
     
-    try:
-        # Convert PIL Image to numpy array
-        img_array = np.array(image)
+    scanner_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            }
+            
+            #scanner-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.95);
+                z-index: 9999;
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            #scanner-container.active {
+                display: flex;
+            }
+            
+            #reader {
+                width: 90%;
+                max-width: 600px;
+                border: 3px solid #667eea;
+                border-radius: 10px;
+                overflow: hidden;
+            }
+            
+            .scanner-header {
+                color: white;
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            
+            .scanner-header h2 {
+                margin: 0 0 10px 0;
+                font-size: 1.5em;
+            }
+            
+            .scanner-header p {
+                margin: 0;
+                opacity: 0.8;
+                font-size: 1em;
+            }
+            
+            .close-btn {
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                background: #f5576c;
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 50px;
+                height: 50px;
+                font-size: 24px;
+                cursor: pointer;
+                transition: all 0.3s;
+                z-index: 10000;
+            }
+            
+            .close-btn:hover {
+                background: #ff6b7f;
+                transform: scale(1.1);
+            }
+            
+            .scan-btn {
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 15px 30px;
+                font-weight: 600;
+                font-size: 1.1em;
+                cursor: pointer;
+                transition: all 0.3s;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            }
+            
+            .scan-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(240, 147, 251, 0.4);
+            }
+            
+            .success-message {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #43cea2;
+                color: white;
+                padding: 30px 50px;
+                border-radius: 10px;
+                font-size: 1.5em;
+                font-weight: bold;
+                z-index: 10001;
+                display: none;
+                box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+            }
+            
+            .success-message.show {
+                display: block;
+                animation: fadeInOut 1.5s ease-in-out;
+            }
+            
+            @keyframes fadeInOut {
+                0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+                50% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+                100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            }
+        </style>
+    </head>
+    <body>
+        <button class="scan-btn" onclick="startScanner()">📷 Skeniraj Barkod</button>
         
-        # Convert RGB to BGR for OpenCV
-        if len(img_array.shape) == 3:
-            img_array = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        <div id="scanner-container">
+            <button class="close-btn" onclick="stopScanner()">✕</button>
+            <div class="scanner-header">
+                <h2>📱 Skeniraj Barkod</h2>
+                <p>Usmjeri kameru prema barkodu proizvoda</p>
+            </div>
+            <div id="reader"></div>
+        </div>
         
-        # Decode barcodes
-        barcodes = pyzbar.decode(img_array)
+        <div id="success-message" class="success-message">
+            ✓ Barkod skeniran!
+        </div>
         
-        if barcodes:
-            # Return first barcode found
-            barcode_data = barcodes[0].data.decode('utf-8')
-            return barcode_data
-        else:
-            return None
-    except Exception as e:
-        st.error(f"Greška pri dekodiranju barkoda: {e}")
-        return None
+        <script>
+            let html5QrCode = null;
+            let isScanning = false;
+            
+            function startScanner() {
+                const container = document.getElementById('scanner-container');
+                container.classList.add('active');
+                
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("reader");
+                }
+                
+                if (!isScanning) {
+                    const config = {
+                        fps: 10,
+                        qrbox: { width: 250, height: 150 },
+                        formatsToSupport: [
+                            Html5QrcodeSupportedFormats.EAN_13,
+                            Html5QrcodeSupportedFormats.EAN_8,
+                            Html5QrcodeSupportedFormats.UPC_A,
+                            Html5QrcodeSupportedFormats.UPC_E,
+                            Html5QrcodeSupportedFormats.CODE_128,
+                            Html5QrcodeSupportedFormats.CODE_39,
+                        ]
+                    };
+                    
+                    html5QrCode.start(
+                        { facingMode: "environment" },
+                        config,
+                        onScanSuccess,
+                        onScanError
+                    ).then(() => {
+                        isScanning = true;
+                    }).catch(err => {
+                        console.error("Greška pri pokretanju scannera:", err);
+                        alert("Ne mogu pristupiti kameri. Provjerite dozvole.");
+                        stopScanner();
+                    });
+                }
+            }
+            
+            function onScanSuccess(decodedText, decodedResult) {
+                // Prikaži success poruku
+                const successMsg = document.getElementById('success-message');
+                successMsg.classList.add('show');
+                
+                // Pošalji barkod u Streamlit
+                window.parent.postMessage({
+                    type: 'barcode_scanned',
+                    barcode: decodedText
+                }, '*');
+                
+                // Zatvori scanner nakon 500ms
+                setTimeout(() => {
+                    successMsg.classList.remove('show');
+                    stopScanner();
+                }, 500);
+            }
+            
+            function onScanError(errorMessage) {
+                // Ignore scan errors (constant while scanning)
+            }
+            
+            function stopScanner() {
+                if (html5QrCode && isScanning) {
+                    html5QrCode.stop().then(() => {
+                        isScanning = false;
+                        const container = document.getElementById('scanner-container');
+                        container.classList.remove('active');
+                    }).catch(err => {
+                        console.error("Greška pri zatvaranju scannera:", err);
+                    });
+                } else {
+                    const container = document.getElementById('scanner-container');
+                    container.classList.remove('active');
+                }
+            }
+        </script>
+    </body>
+    </html>
+    """
+    
+    components.html(scanner_html, height=80)
+
+# ──────────────────────────────────────────────────────────────────────
+# HELPER FUNKCIJE
+# ──────────────────────────────────────────────────────────────────────
 
 def wildcard_to_regex(pattern):
     """Pretvara wildcard pattern (* i ?) u regex"""
@@ -309,6 +511,7 @@ def convert_price(val):
     if pd.isna(val) or val == '':
         return None
     try:
+        # Ukloni sve razmake i zamijeni zarez s točkom
         cleaned = str(val).replace(',', '.').replace(' ', '').strip()
         if cleaned == '':
             return None
@@ -335,15 +538,31 @@ def load_csv_from_dropbox(filename):
         return None
 
 def determine_final_price(row, config, debug_mode=False):
-    """Određuje finalnu cijenu proizvoda prema logici dućana"""
+    """
+    Određuje finalnu cijenu proizvoda prema logici dućana.
+    Prioritet: akcijska cijena (ako postoji i > 0) -> maloprodajna cijena
+    """
     maloprodajna_col = config["columns"]["maloprodajna"]
     akcijska_col = config["columns"]["akcijska"]
     
     maloprodajna = row.get(maloprodajna_col)
     akcijska = row.get(akcijska_col) if akcijska_col else None
     
+    # Debug info
+    if debug_mode:
+        st.write(f"Debug - {row.get(config['columns']['naziv'], 'N/A')[:50]}...")
+        st.write(f"  Maloprodajna: {maloprodajna} (type: {type(maloprodajna)})")
+        st.write(f"  Akcijska: {akcijska} (type: {type(akcijska)})")
+    
+    # Provjeri da li postoji akcijska cijena i da li je validna (> 0)
     if pd.notna(akcijska) and akcijska > 0:
+        if debug_mode:
+            st.write(f"  ✓ Koristi akcijsku: {akcijska}")
         return akcijska
+    
+    # Inače koristi maloprodajnu
+    if debug_mode:
+        st.write(f"  → Koristi maloprodajnu: {maloprodajna}")
     return maloprodajna
 
 def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=False):
@@ -355,35 +574,66 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=Fa
         if content is None:
             return rezultati
         
+        # Učitaj CSV
         df = pd.read_csv(
             StringIO(content.decode(config["encoding"])),
             sep=config["separator"],
             on_bad_lines='skip'
         )
         
+        # Očisti nazive kolona
         df.columns = df.columns.str.strip()
         
+        if debug_mode and ducan_naziv == "Spar":
+            st.write(f"### 🔍 Debug info za {ducan_naziv}")
+            st.write(f"Učitano redaka: {len(df)}")
+            st.write(f"Kolone u CSV-u: {list(df.columns)}")
+        
+        # Pronađi kolonu za maloprodajnu cijenu ako nije definirana
         if config["columns"]["maloprodajna"] is None:
             cijene = [c for c in df.columns if "maloprod" in c.lower()]
             if cijene:
                 config["columns"]["maloprodajna"] = cijene[0]
             else:
+                st.warning(f"{ducan_naziv}: nije pronađena kolona s maloprodajnom cijenom")
                 return rezultati
         
+        # Konvertiraj cijene u numeričke vrijednosti
         df[config["columns"]["maloprodajna"]] = df[config["columns"]["maloprodajna"]].apply(convert_price)
         
         if config["columns"]["akcijska"]:
             df[config["columns"]["akcijska"]] = df[config["columns"]["akcijska"]].apply(convert_price)
+            
+            if debug_mode and ducan_naziv == "Spar":
+                st.write(f"\n**Primjer prvih 5 redaka s cijenama:**")
+                sample_df = df[[
+                    config["columns"]["naziv"],
+                    config["columns"]["maloprodajna"],
+                    config["columns"]["akcijska"]
+                ]].head()
+                st.dataframe(sample_df)
+                
+                # Provjeri ima li akcijskih cijena
+                akcijske_count = df[config["columns"]["akcijska"]].notna().sum()
+                st.write(f"\nProizvoda s akcijskom cijenom: {akcijske_count} / {len(df)}")
         
+        # KLJUČNA IZMJENA: Uvijek koristi prioritet akcijska -> maloprodajna
         df["CIJENA"] = df.apply(
-            lambda row: determine_final_price(row, config, debug_mode),
+            lambda row: determine_final_price(row, config, debug_mode and ducan_naziv == "Spar"),
             axis=1
         )
         
+        # Pretraži po barkodu (točno podudaranje)
         if barkod:
             barkod_clean = barkod.strip()
+            # Konvertiraj barkod kolonu u string i ukloni .0
             df[config["columns"]["barkod"]] = df[config["columns"]["barkod"]].astype(str).str.replace('.0', '', regex=False)
+            
             mask = df[config["columns"]["barkod"]] == barkod_clean
+            
+            matched_count = mask.sum()
+            if debug_mode and matched_count > 0:
+                st.write(f"\n**Barkod '{barkod_clean}' - pronađeno: {matched_count} proizvoda**")
             
             for _, row in df[mask].iterrows():
                 rezultati.append({
@@ -393,10 +643,13 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=Fa
                     "Barkod": str(row.get(config["columns"]["barkod"], "")).replace('.0', ''),
                     "Naziv proizvoda": row[config["columns"]["naziv"]],
                     "Cijena (€)": row["CIJENA"],
+                    "Maloprodajna (€)": row[config["columns"]["maloprodajna"]],
+                    "Akcijska (€)": row.get(config["columns"]["akcijska"]) if config["columns"]["akcijska"] else None,
                     "Jedinica mjere": row.get(config["columns"]["jedinica"], ""),
                     "Kategorija": row.get(config["columns"]["kategorija"], "")
                 })
         
+        # Pretraži po pojmovima (wildcard)
         if pojmovi:
             for pojam in pojmovi:
                 if not pojam.strip():
@@ -407,6 +660,10 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=Fa
                     regex, na=False, regex=True
                 )
                 
+                matched_count = mask.sum()
+                if debug_mode and ducan_naziv == "Spar" and matched_count > 0:
+                    st.write(f"\n**Pojam '{pojam}' - pronađeno: {matched_count} proizvoda**")
+                
                 for _, row in df[mask].iterrows():
                     rezultati.append({
                         "Trgovački lanac": ducan_naziv,
@@ -415,6 +672,8 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=Fa
                         "Barkod": str(row.get(config["columns"]["barkod"], "")).replace('.0', ''),
                         "Naziv proizvoda": row[config["columns"]["naziv"]],
                         "Cijena (€)": row["CIJENA"],
+                        "Maloprodajna (€)": row[config["columns"]["maloprodajna"]],
+                        "Akcijska (€)": row.get(config["columns"]["akcijska"]) if config["columns"]["akcijska"] else None,
                         "Jedinica mjere": row.get(config["columns"]["jedinica"], ""),
                         "Kategorija": row.get(config["columns"]["kategorija"], "")
                     })
@@ -423,6 +682,9 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=Fa
         
     except Exception as e:
         st.error(f"{ducan_naziv}: {str(e)}")
+        if debug_mode:
+            import traceback
+            st.code(traceback.format_exc())
         return rezultati
 
 def create_excel_download(df):
@@ -432,6 +694,7 @@ def create_excel_download(df):
         df.to_excel(writer, index=False, sheet_name='Rezultati')
         ws = writer.sheets['Rezultati']
         
+        # Formatiraj header
         header_fmt = writer.book.add_format({
             'bold': True,
             'bg_color': '#667eea',
@@ -442,6 +705,7 @@ def create_excel_download(df):
         for col_num, value in enumerate(df.columns):
             ws.write(0, col_num, value, header_fmt)
         
+        # Prilagodi širinu kolona
         for i, col in enumerate(df.columns):
             max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
             ws.set_column(i, i, max_len)
@@ -453,6 +717,7 @@ def create_excel_download(df):
 # ──────────────────────────────────────────────────────────────────────
 
 def main():
+    # Initialize session state
     if 'scanned_barcode' not in st.session_state:
         st.session_state.scanned_barcode = ''
     
@@ -466,10 +731,12 @@ def main():
 </div>
     """, unsafe_allow_html=True)
     
+    # Debug mode toggle (skriveno u sidebar)
     with st.sidebar:
         debug_mode = st.checkbox("🐛 Debug mode", value=False, 
                                  help="Prikazuje dodatne informacije o obradi cijena")
     
+    # Info box s uputama
     st.markdown(r"""
 <div class="info-box">
     <h3>🔍 Kako pretraživati</h3>
@@ -494,39 +761,50 @@ def main():
 </div>
     """, unsafe_allow_html=True)
     
-    # Barkod pretraga
+    # Barkod pretraga s live scannerom
     st.markdown('<div class="barcode-box">', unsafe_allow_html=True)
     st.markdown("### 🔢 Pretraga po barkodu")
     
-    barkod_input = st.text_input(
-        "Unesite ili skenirajte barkod proizvoda",
-        value=st.session_state.scanned_barcode,
-        placeholder="npr. 3017620422003",
-        help="Točna pretraga po barkodu - pronalazi samo taj proizvod",
-        key="barkod"
-    )
+    col_barcode, col_scanner = st.columns([3, 1])
     
-    # Camera input for barcode scanning (SAMO ako je dostupan scanner)
-    if BARCODE_SCANNER_AVAILABLE:
-        st.markdown("**📱 Skeniranje barkoda kamerom (samo na mobitelu):**")
-        camera_photo = st.camera_input("Slikaj barkod proizvoda")
-        
-        if camera_photo is not None:
-            # Decode barcode from image
-            image = Image.open(camera_photo)
-            with st.spinner("Dekodiranje barkoda..."):
-                barcode_data = decode_barcode_from_image(image)
-            
-            if barcode_data:
-                st.session_state.scanned_barcode = barcode_data
-                st.markdown(f'<div class="success-msg">✓ Barkod dekodiran: {barcode_data}</div>', unsafe_allow_html=True)
-                st.rerun()
-            else:
-                st.error("❌ Nisam uspio pročitati barkod. Pokušaj ponovno s boljim osvjetljenjem ili na udaljenosti 10-15cm.")
-    else:
-        st.info("📱 Skeniranje barkoda kamerom dostupno samo na mobitelu. Na desktopu upiši barkod ručno.")
+    with col_barcode:
+        barkod_input = st.text_input(
+            "Unesite ili skenirajte barkod proizvoda",
+            value=st.session_state.scanned_barcode,
+            placeholder="npr. 3017620422003",
+            help="Točna pretraga po barkodu - pronalazi samo taj proizvod",
+            key="barkod"
+        )
+    
+    with col_scanner:
+        st.markdown("<br>", unsafe_allow_html=True)
+        barcode_scanner_component()
     
     st.markdown('</div>', unsafe_allow_html=True)
+    
+    # JavaScript za primanje skeniranog barkoda
+    components.html("""
+    <script>
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'barcode_scanned') {
+                // Proslijedi barkod Streamlit-u preko session state
+                const barcode = event.data.barcode;
+                
+                // Postavi vrijednost u input polje
+                window.parent.postMessage({
+                    type: 'streamlit:setComponentValue',
+                    key: 'scanned_barcode',
+                    value: barcode
+                }, '*');
+                
+                // Forsiraj rerun
+                window.parent.postMessage({
+                    type: 'streamlit:rerun'
+                }, '*');
+            }
+        });
+    </script>
+    """, height=0)
     
     st.markdown("### 🔍 Pretraga po nazivu proizvoda")
     
@@ -581,23 +859,46 @@ def main():
                 st.warning("Nisu pronađeni rezultati za unesene pojmove.")
             return
         
+        # Kreiraj DataFrame
         df = pd.DataFrame(svi_rez)
+        
+        # Sortiraj po cijeni
         df = df.sort_values("Cijena (€)")
+        
+        # Ukloni duplikate (isti proizvod iz istog dućana)
         df = df.drop_duplicates(["Trgovački lanac", "Šifra"]).reset_index(drop=True)
         
-        zeljeni_redoslijed = [
-            "Traženi pojam",
-            "Naziv proizvoda",
-            "Jedinica mjere",
-            "Cijena (€)",
-            "Trgovački lanac",
-            "Šifra",
-            "Barkod",
-            "Kategorija"
-        ]
+        # Pripremi kolone za prikaz
+        if debug_mode:
+            zeljeni_redoslijed = [
+                "Traženi pojam",
+                "Naziv proizvoda",
+                "Jedinica mjere",
+                "Cijena (€)",
+                "Maloprodajna (€)",
+                "Akcijska (€)",
+                "Trgovački lanac",
+                "Šifra",
+                "Barkod",
+                "Kategorija"
+            ]
+        else:
+            zeljeni_redoslijed = [
+                "Traženi pojam",
+                "Naziv proizvoda",
+                "Jedinica mjere",
+                "Cijena (€)",
+                "Trgovački lanac",
+                "Šifra",
+                "Barkod",
+                "Kategorija"
+            ]
+            # Ukloni debug kolone
+            df = df.drop(columns=["Maloprodajna (€)", "Akcijska (€)"], errors='ignore')
         
         df = df[zeljeni_redoslijed]
         
+        # Prikaži statistiku
         st.markdown('<div style="height:20px"></div>', unsafe_allow_html=True)
         st.markdown('### 📊 Rezultati')
         
@@ -627,6 +928,7 @@ def main():
 </div>
             """, unsafe_allow_html=True)
         
+        # Prikaži tablicu
         if barkod:
             st.markdown(f"### 🏆 Rezultati za barkod **{barkod}** (sortirano po cijeni)")
         else:
@@ -636,6 +938,16 @@ def main():
         df_show["Cijena (€)"] = df_show["Cijena (€)"].apply(
             lambda x: f"€{x:.2f}" if pd.notna(x) else ""
         )
+        
+        if debug_mode:
+            df_show["Maloprodajna (€)"] = df_show["Maloprodajna (€)"].apply(
+                lambda x: f"€{x:.2f}" if pd.notna(x) else ""
+            )
+            df_show["Akcijska (€)"] = df_show["Akcijska (€)"].apply(
+                lambda x: f"€{x:.2f}" if pd.notna(x) else ""
+            )
+        
+        # Popravi šifru
         df_show["Šifra"] = df_show["Šifra"].astype(str).str.replace(r'\.0$', '', regex=True)
         
         st.dataframe(
@@ -652,9 +964,15 @@ def main():
             }
         )
         
+        # Preuzimanje Excel datoteke
         st.markdown("### 💾 Preuzmi rezultate")
         
-        excel = create_excel_download(df)
+        # Pripremi DataFrame za Excel (bez debug kolona)
+        df_excel = df.copy()
+        if "Maloprodajna (€)" in df_excel.columns:
+            df_excel = df_excel.drop(columns=["Maloprodajna (€)", "Akcijska (€)"], errors='ignore')
+        
+        excel = create_excel_download(df_excel)
         
         st.download_button(
             "📥 Preuzmi Excel",
@@ -664,6 +982,7 @@ def main():
             use_container_width=True
         )
     
+    # Footer
     st.markdown("""
 <div class="footer">
     Izrađeno uz pomoć AI  |  Cijene ažurirane pon–sub ~8:20
