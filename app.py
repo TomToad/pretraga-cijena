@@ -271,68 +271,66 @@ DUCANI_CONFIG = {
 # BARCODE SCANNER COMPONENT
 # ──────────────────────────────────────────────────────────────────────
 
-def barcode_scanner_component(open_scanner=False):
-    """Live barcode scanner component using html5-qrcode"""
+def barcode_scanner_modal():
+    """Modal barcode scanner that opens when triggered"""
     
-    # Auto-open if requested
-    auto_open = "startScanner();" if open_scanner else ""
-    
-    scanner_html = f"""
+    scanner_html = """
     <!DOCTYPE html>
     <html>
     <head>
         <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
         <style>
-            body {{
+            * {
                 margin: 0;
                 padding: 0;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            }}
+                box-sizing: border-box;
+            }
             
-            #scanner-container {{
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                overflow: hidden;
+            }
+            
+            #scanner-container {
                 position: fixed;
                 top: 0;
                 left: 0;
-                width: 100%;
-                height: 100%;
+                width: 100vw;
+                height: 100vh;
                 background: rgba(0, 0, 0, 0.95);
-                z-index: 9999;
-                display: none;
+                z-index: 999999;
+                display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-            }}
+            }
             
-            #scanner-container.active {{
-                display: flex;
-            }}
-            
-            #reader {{
+            #reader {
                 width: 90%;
                 max-width: 600px;
                 border: 3px solid #667eea;
                 border-radius: 10px;
                 overflow: hidden;
-            }}
+            }
             
-            .scanner-header {{
+            .scanner-header {
                 color: white;
                 text-align: center;
                 margin-bottom: 20px;
-            }}
+            }
             
-            .scanner-header h2 {{
+            .scanner-header h2 {
                 margin: 0 0 10px 0;
-                font-size: 1.5em;
-            }}
+                font-size: 1.8em;
+            }
             
-            .scanner-header p {{
+            .scanner-header p {
                 margin: 0;
                 opacity: 0.8;
-                font-size: 1em;
-            }}
+                font-size: 1.1em;
+            }
             
-            .close-btn {{
+            .close-btn {
                 position: absolute;
                 top: 20px;
                 right: 20px;
@@ -340,20 +338,21 @@ def barcode_scanner_component(open_scanner=False):
                 color: white;
                 border: none;
                 border-radius: 50%;
-                width: 50px;
-                height: 50px;
-                font-size: 24px;
+                width: 60px;
+                height: 60px;
+                font-size: 28px;
                 cursor: pointer;
                 transition: all 0.3s;
-                z-index: 10000;
-            }}
+                z-index: 1000000;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            }
             
-            .close-btn:hover {{
+            .close-btn:hover {
                 background: #ff6b7f;
                 transform: scale(1.1);
-            }}
+            }
             
-            .success-message {{
+            .success-message {
                 position: fixed;
                 top: 50%;
                 left: 50%;
@@ -362,23 +361,23 @@ def barcode_scanner_component(open_scanner=False):
                 color: white;
                 padding: 30px 50px;
                 border-radius: 10px;
-                font-size: 1.5em;
+                font-size: 1.8em;
                 font-weight: bold;
-                z-index: 10001;
+                z-index: 1000001;
                 display: none;
                 box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
-            }}
+            }
             
-            .success-message.show {{
+            .success-message.show {
                 display: block;
                 animation: fadeInOut 1.5s ease-in-out;
-            }}
+            }
             
-            @keyframes fadeInOut {{
-                0% {{ opacity: 0; transform: translate(-50%, -50%) scale(0.8); }}
-                50% {{ opacity: 1; transform: translate(-50%, -50%) scale(1); }}
-                100% {{ opacity: 0; transform: translate(-50%, -50%) scale(0.8); }}
-            }}
+            @keyframes fadeInOut {
+                0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+                50% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+                100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            }
         </style>
     </head>
     <body>
@@ -399,25 +398,20 @@ def barcode_scanner_component(open_scanner=False):
             let html5QrCode = null;
             let isScanning = false;
             
-            // Listen for messages from Streamlit
-            window.addEventListener('message', function(event) {{
-                if (event.data === 'START_SCANNER') {{
-                    startScanner();
-                }}
-            }});
+            // Start immediately
+            setTimeout(startScanner, 100);
             
-            function startScanner() {{
-                const container = document.getElementById('scanner-container');
-                container.classList.add('active');
+            function startScanner() {
+                console.log("Starting scanner...");
                 
-                if (!html5QrCode) {{
+                if (!html5QrCode) {
                     html5QrCode = new Html5Qrcode("reader");
-                }}
+                }
                 
-                if (!isScanning) {{
-                    const config = {{
+                if (!isScanning) {
+                    const config = {
                         fps: 10,
-                        qrbox: {{ width: 250, height: 150 }},
+                        qrbox: { width: 250, height: 150 },
                         formatsToSupport: [
                             Html5QrcodeSupportedFormats.EAN_13,
                             Html5QrcodeSupportedFormats.EAN_8,
@@ -426,69 +420,70 @@ def barcode_scanner_component(open_scanner=False):
                             Html5QrcodeSupportedFormats.CODE_128,
                             Html5QrcodeSupportedFormats.CODE_39,
                         ]
-                    }};
+                    };
                     
                     html5QrCode.start(
-                        {{ facingMode: "environment" }},
+                        { facingMode: "environment" },
                         config,
                         onScanSuccess,
                         onScanError
-                    ).then(() => {{
+                    ).then(() => {
                         isScanning = true;
-                    }}).catch(err => {{
+                        console.log("Scanner started successfully");
+                    }).catch(err => {
                         console.error("Greška pri pokretanju scannera:", err);
-                        alert("Ne mogu pristupiti kameri. Provjerite dozvole.");
+                        alert("Ne mogu pristupiti kameri. Provjerite dozvole u postavkama browsera.");
                         stopScanner();
-                    }});
-                }}
-            }}
+                    });
+                }
+            }
             
-            function onScanSuccess(decodedText, decodedResult) {{
-                // Prikaži success poruku
+            function onScanSuccess(decodedText, decodedResult) {
+                console.log("Barcode scanned:", decodedText);
+                
+                // Show success message
                 const successMsg = document.getElementById('success-message');
                 successMsg.classList.add('show');
                 
-                // Pošalji barkod u Streamlit
-                window.parent.postMessage({{
+                // Send barcode to Streamlit via component value
+                window.parent.postMessage({
                     type: 'streamlit:setComponentValue',
                     value: decodedText
-                }}, '*');
+                }, '*');
                 
-                // Zatvori scanner nakon 500ms
-                setTimeout(() => {{
+                // Close scanner after short delay
+                setTimeout(() => {
                     successMsg.classList.remove('show');
                     stopScanner();
-                }}, 500);
-            }}
+                }, 800);
+            }
             
-            function onScanError(errorMessage) {{
-                // Ignore scan errors (constant while scanning)
-            }}
+            function onScanError(errorMessage) {
+                // Ignore continuous scan errors
+            }
             
-            function stopScanner() {{
-                if (html5QrCode && isScanning) {{
-                    html5QrCode.stop().then(() => {{
+            function stopScanner() {
+                console.log("Stopping scanner...");
+                if (html5QrCode && isScanning) {
+                    html5QrCode.stop().then(() => {
                         isScanning = false;
-                        const container = document.getElementById('scanner-container');
-                        container.classList.remove('active');
-                    }}).catch(err => {{
-                        console.error("Greška pri zatvaranju scannera:", err);
-                    }});
-                }} else {{
-                    const container = document.getElementById('scanner-container');
-                    container.classList.remove('active');
-                }}
-            }}
-            
-            // Auto-open if requested
-            {auto_open}
+                        console.log("Scanner stopped");
+                        // Signal Streamlit to close
+                        window.parent.postMessage({
+                            type: 'streamlit:setComponentValue',
+                            value: 'CLOSE'
+                        }, '*');
+                    }).catch(err => {
+                        console.error("Error stopping scanner:", err);
+                    });
+                }
+            }
         </script>
     </body>
     </html>
     """
     
-    result = components.html(scanner_html, height=600)
-    return result
+    return components.html(scanner_html, height=800)
 
 # ──────────────────────────────────────────────────────────────────────
 # HELPER FUNKCIJE
@@ -711,9 +706,11 @@ def create_excel_download(df):
 # ──────────────────────────────────────────────────────────────────────
 
 def main():
-    # Initialize session state
+    # Initialize session states
     if 'scanned_barcode' not in st.session_state:
         st.session_state.scanned_barcode = ''
+    if 'show_scanner' not in st.session_state:
+        st.session_state.show_scanner = False
     
     st.markdown("""
 <div class="header-banner">
@@ -755,7 +752,7 @@ def main():
 </div>
     """, unsafe_allow_html=True)
     
-    # Barkod pretraga s live scannerom
+    # Barkod pretraga
     st.markdown('<div class="barcode-box">', unsafe_allow_html=True)
     st.markdown("### 🔢 Pretraga po barkodu")
     
@@ -771,17 +768,25 @@ def main():
         )
     
     with col_scanner:
-        scan_button = st.button("📷 Skeniraj", use_container_width=True, key="scan_btn")
+        if st.button("📷 Skeniraj", use_container_width=True, key="scan_btn", type="primary"):
+            st.session_state.show_scanner = True
+            st.rerun()
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Render scanner component
-    scanned_value = barcode_scanner_component(open_scanner=scan_button)
-    
-    # Update session state if barcode was scanned
-    if scanned_value:
-        st.session_state.scanned_barcode = scanned_value
-        st.rerun()
+    # Show scanner modal if activated
+    if st.session_state.show_scanner:
+        scanned_value = barcode_scanner_modal()
+        
+        # Handle scanned value
+        if scanned_value:
+            if scanned_value == 'CLOSE':
+                st.session_state.show_scanner = False
+                st.rerun()
+            else:
+                st.session_state.scanned_barcode = scanned_value
+                st.session_state.show_scanner = False
+                st.rerun()
     
     st.markdown("### 🔍 Pretraga po nazivu proizvoda")
     
