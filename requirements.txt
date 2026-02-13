@@ -4,3 +4,8 @@ openpyxl==3.1.2
 xlsxwriter==3.1.9
 dropbox==11.36.2
 numpy==1.26.4
+
+# Barcode scanner za mobitele
+Pillow
+opencv-python-headless
+pyzbar
