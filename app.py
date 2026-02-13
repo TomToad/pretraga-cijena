@@ -140,6 +140,14 @@ st.markdown("""
         font-family: monospace;
         font-size: 0.9em;
     }
+    
+    .barcode-box {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        padding: 15px;
+        border-radius: 10px;
+        margin: 20px 0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -309,8 +317,8 @@ def determine_final_price(row, config, debug_mode=False):
         st.write(f"  → Koristi maloprodajnu: {maloprodajna}")
     return maloprodajna
 
-def pretrazi_ducan(ducan_naziv, config, pojmovi, debug_mode=False):
-    """Pretražuje jedan dućan za zadane pojmove"""
+def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=False):
+    """Pretražuje jedan dućan za zadane pojmove ili barkod"""
     rezultati = []
     
     try:
@@ -362,39 +370,65 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi, debug_mode=False):
                 st.write(f"\nProizvoda s akcijskom cijenom: {akcijske_count} / {len(df)}")
         
         # KLJUČNA IZMJENA: Uvijek koristi prioritet akcijska -> maloprodajna
-        # bez obzira na price_logic postavku
         df["CIJENA"] = df.apply(
             lambda row: determine_final_price(row, config, debug_mode and ducan_naziv == "Spar"),
             axis=1
         )
         
-        # Pretraži po pojmovima
-        for pojam in pojmovi:
-            if not pojam.strip():
-                continue
+        # Pretraži po barkodu (točno podudaranje)
+        if barkod:
+            barkod_clean = barkod.strip()
+            # Konvertiraj barkod kolonu u string i ukloni .0
+            df[config["columns"]["barkod"]] = df[config["columns"]["barkod"]].astype(str).str.replace('.0', '', regex=False)
             
-            regex = wildcard_to_regex(pojam)
-            mask = df[config["columns"]["naziv"]].astype(str).str.lower().str.contains(
-                regex, na=False, regex=True
-            )
+            mask = df[config["columns"]["barkod"]] == barkod_clean
             
             matched_count = mask.sum()
-            if debug_mode and ducan_naziv == "Spar" and matched_count > 0:
-                st.write(f"\n**Pojam '{pojam}' - pronađeno: {matched_count} proizvoda**")
+            if debug_mode and matched_count > 0:
+                st.write(f"\n**Barkod '{barkod_clean}' - pronađeno: {matched_count} proizvoda**")
             
             for _, row in df[mask].iterrows():
                 rezultati.append({
                     "Trgovački lanac": ducan_naziv,
-                    "Traženi pojam": pojam,
+                    "Traženi pojam": f"🔢 {barkod_clean}",
                     "Šifra": row.get(config["columns"]["sifra"], ""),
                     "Barkod": str(row.get(config["columns"]["barkod"], "")).replace('.0', ''),
                     "Naziv proizvoda": row[config["columns"]["naziv"]],
                     "Cijena (€)": row["CIJENA"],
-                    "Maloprodajna (€)": row[config["columns"]["maloprodajna"]],  # DODANO za debug
-                    "Akcijska (€)": row.get(config["columns"]["akcijska"]) if config["columns"]["akcijska"] else None,  # DODANO za debug
+                    "Maloprodajna (€)": row[config["columns"]["maloprodajna"]],
+                    "Akcijska (€)": row.get(config["columns"]["akcijska"]) if config["columns"]["akcijska"] else None,
                     "Jedinica mjere": row.get(config["columns"]["jedinica"], ""),
                     "Kategorija": row.get(config["columns"]["kategorija"], "")
                 })
+        
+        # Pretraži po pojmovima (wildcard)
+        if pojmovi:
+            for pojam in pojmovi:
+                if not pojam.strip():
+                    continue
+                
+                regex = wildcard_to_regex(pojam)
+                mask = df[config["columns"]["naziv"]].astype(str).str.lower().str.contains(
+                    regex, na=False, regex=True
+                )
+                
+                matched_count = mask.sum()
+                if debug_mode and ducan_naziv == "Spar" and matched_count > 0:
+                    st.write(f"\n**Pojam '{pojam}' - pronađeno: {matched_count} proizvoda**")
+                
+                for _, row in df[mask].iterrows():
+                    rezultati.append({
+                        "Trgovački lanac": ducan_naziv,
+                        "Traženi pojam": pojam,
+                        "Šifra": row.get(config["columns"]["sifra"], ""),
+                        "Barkod": str(row.get(config["columns"]["barkod"], "")).replace('.0', ''),
+                        "Naziv proizvoda": row[config["columns"]["naziv"]],
+                        "Cijena (€)": row["CIJENA"],
+                        "Maloprodajna (€)": row[config["columns"]["maloprodajna"]],
+                        "Akcijska (€)": row.get(config["columns"]["akcijska"]) if config["columns"]["akcijska"] else None,
+                        "Jedinica mjere": row.get(config["columns"]["jedinica"], ""),
+                        "Kategorija": row.get(config["columns"]["kategorija"], "")
+                    })
         
         return rezultati
         
@@ -455,7 +489,7 @@ def main():
 <div class="info-box">
     <h3>🔍 Kako pretraživati</h3>
     <ul>
-        <li><strong>Do 6 pojmova</strong></li>
+        <li><strong>Do 6 pojmova</strong> ili <strong>1 barkod</strong></li>
         <li><strong>Bez *</strong> → traži na početku naziva
             <ul>
                 <li><code>mlijeko</code> → Mlijeko Dukat, Mlijeko fresh...</li>
@@ -475,7 +509,18 @@ def main():
 </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("### 🔍 Unesite pojmove za pretragu")
+    # Barkod pretraga
+    st.markdown('<div class="barcode-box">', unsafe_allow_html=True)
+    st.markdown("### 🔢 Pretraga po barkodu")
+    barkod_input = st.text_input(
+        "Unesite barkod proizvoda",
+        placeholder="npr. 3017620422003",
+        help="Točna pretraga po barkodu - pronalazi samo taj proizvod",
+        key="barkod"
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown("### 🔍 Pretraga po nazivu proizvoda")
     
     col1, col2 = st.columns(2)
     
@@ -491,10 +536,15 @@ def main():
     
     if st.button("🔎 Pretraži cijene", use_container_width=True):
         pojmovi = [p.strip() for p in [p1, p2, p3, p4, p5, p6] if p and p.strip()]
+        barkod = barkod_input.strip() if barkod_input else None
         
-        if not pojmovi:
-            st.error("Unesite barem jedan pojam za pretragu.")
+        if not pojmovi and not barkod:
+            st.error("Unesite barem jedan pojam ili barkod za pretragu.")
             return
+        
+        if pojmovi and barkod:
+            st.warning("⚠️ Možete pretraživati po pojmovima ILI po barkodu, ne oboje istovremeno. Koristim samo barkod pretragu.")
+            pojmovi = []
         
         progress = st.progress(0)
         status = st.empty()
@@ -503,8 +553,13 @@ def main():
         total = len(DUCANI_CONFIG)
         
         for i, (ime, cfg) in enumerate(DUCANI_CONFIG.items()):
-            status.text(f"Pretražujem {ime}...")
-            rez = pretrazi_ducan(ime, cfg, pojmovi, debug_mode=debug_mode)
+            if barkod:
+                status.text(f"Pretražujem {ime} po barkodu {barkod}...")
+            else:
+                status.text(f"Pretražujem {ime}...")
+            
+            rez = pretrazi_ducan(ime, cfg, pojmovi=pojmovi if not barkod else None, 
+                                barkod=barkod, debug_mode=debug_mode)
             svi_rez.extend(rez)
             progress.progress((i + 1) / total)
         
@@ -512,7 +567,10 @@ def main():
         status.empty()
         
         if not svi_rez:
-            st.warning("Nisu pronađeni rezultati za unesene pojmove.")
+            if barkod:
+                st.warning(f"Barkod **{barkod}** nije pronađen ni u jednom trgovačkom lancu.")
+            else:
+                st.warning("Nisu pronađeni rezultati za unesene pojmove.")
             return
         
         # Kreiraj DataFrame
@@ -585,7 +643,10 @@ def main():
             """, unsafe_allow_html=True)
         
         # Prikaži tablicu
-        st.markdown("### 🏆 Najbolje ponude (sortirano po cijeni)")
+        if barkod:
+            st.markdown(f"### 🏆 Rezultati za barkod **{barkod}** (sortirano po cijeni)")
+        else:
+            st.markdown("### 🏆 Najbolje ponude (sortirano po cijeni)")
         
         df_show = df.copy()
         df_show["Cijena (€)"] = df_show["Cijena (€)"].apply(
