@@ -4,6 +4,7 @@ import re
 from io import BytesIO, StringIO
 import dropbox
 from dropbox.exceptions import AuthError
+import copy
 
 st.set_page_config(
     page_title="Pretraga Cijena | Price Finder",
@@ -12,7 +13,157 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-st.markdown("""<style></style>""", unsafe_allow_html=True)
+st.markdown("""
+<style>
+    .main {
+        background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+        color: #e0e0e0;
+    }
+    
+    h1, h2, h3 {
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+    
+    .info-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    
+    .info-box h3 {
+        color: white !important;
+        margin-top: 0;
+    }
+    
+    .info-box ul {
+        color: #f0f0f0;
+        line-height: 1.8;
+    }
+    
+    .info-box code {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: #fff;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    
+    .stat-number {
+        font-size: 2.5em;
+        font-weight: bold;
+        color: white;
+        margin: 10px 0;
+    }
+    
+    .stat-label {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 1.1em;
+    }
+    
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .stTextInput > div > div > input {
+        background-color: #2d2d44;
+        color: #e0e0e0;
+        border: 2px solid #3d3d54;
+        border-radius: 8px;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    }
+    
+    .footer {
+        text-align: center;
+        padding: 20px;
+        color: #999;
+        margin-top: 40px;
+        border-top: 1px solid #3d3d54;
+    }
+    
+    .header-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 30px;
+        border-radius: 10px;
+        text-align: center;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    
+    .header-title {
+        font-size: 2.5em;
+        font-weight: bold;
+        color: white;
+        margin: 0;
+    }
+    
+    .header-subtitle {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 1.1em;
+        margin-top: 10px;
+    }
+    
+    .debug-box {
+        background: #2d2d44;
+        border: 2px solid #667eea;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+        font-family: monospace;
+        font-size: 0.9em;
+    }
+    
+    .barcode-box {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        padding: 15px;
+        border-radius: 10px;
+        margin: 20px 0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    
+    .scanner-btn {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 10px 20px !important;
+        font-weight: 600 !important;
+        font-size: 1.1em !important;
+        cursor: pointer !important;
+        transition: all 0.3s !important;
+        margin-top: 8px !important;
+    }
+    
+    .scanner-btn:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 12px rgba(240, 147, 251, 0.4) !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 DUCANI_CONFIG = {
     "Plodine": {
@@ -101,30 +252,19 @@ DUCANI_CONFIG = {
     }
 }
 
-# ── KLJUČNA FUNKCIJA: fuzzy pronalaženje kolone ──────────────────────
 def find_column(df_columns, target, debug_name=""):
-    """
-    Pronalazi kolonu u DataFrameu:
-    1. Egzaktno podudaranje (case-insensitive)
-    2. Partial match — target sadržan u nazivu kolone
-    3. Partial match — naziv kolone sadržan u targetu
-    Vraća stvarni naziv kolone ili None.
-    """
     if target is None:
         return None
     target_norm = target.lower().strip()
     cols_lower = {c.lower().strip(): c for c in df_columns}
 
-    # 1. Egzaktno
     if target_norm in cols_lower:
         return cols_lower[target_norm]
 
-    # 2. Target sadržan u nazivu kolone
     for col_lower, col_orig in cols_lower.items():
         if target_norm in col_lower:
             return col_orig
 
-    # 3. Naziv kolone sadržan u targetu
     for col_lower, col_orig in cols_lower.items():
         if col_lower in target_norm and len(col_lower) > 4:
             return col_orig
@@ -132,10 +272,6 @@ def find_column(df_columns, target, debug_name=""):
     return None
 
 def resolve_columns(config, df_columns, debug_mode=False, ducan_naziv=""):
-    """
-    Vraća dict s stvarnim nazivima kolona pronađenih u DataFrameu.
-    Ispisuje debug info ako je debug_mode uključen.
-    """
     resolved = {}
     for key, target in config["columns"].items():
         found = find_column(df_columns, target, debug_name=key)
@@ -145,7 +281,6 @@ def resolve_columns(config, df_columns, debug_mode=False, ducan_naziv=""):
             st.write(f"  {status} `{key}`: traženo=`{target}` → nađeno=`{found}`")
     return resolved
 
-# ────────────────────────────────────────────────────────────────────────
 def wildcard_to_regex(pattern):
     pattern = re.escape(pattern.lower())
     pattern = pattern.replace(r'\*', '.*').replace(r'\?', '.')
@@ -180,10 +315,6 @@ def load_csv_from_dropbox(filename):
         return None
 
 def determine_final_price(row, resolved_cols):
-    """
-    Prioritet: akcijska (ako > 0) → maloprodajna (ako > 0) → None
-    Koristi resolved_cols (stvarne nazive kolona u DataFrameu).
-    """
     mal_col = resolved_cols.get("maloprodajna")
     akc_col = resolved_cols.get("akcijska")
 
@@ -207,20 +338,17 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=Fa
             StringIO(content.decode(config["encoding"])),
             sep=config["separator"],
             on_bad_lines='skip',
-            dtype=str  # sve učitaj kao string, konvertiramo ručno
+            dtype=str
         )
 
-        # Očisti nazive kolona + ukloni BOM
         df.columns = df.columns.str.strip().str.replace('\ufeff', '', regex=False)
 
         if debug_mode:
             st.write(f"#### 🔍 {ducan_naziv} — kolone u CSV-u:")
             st.write(list(df.columns))
 
-        # Rješavanje stvarnih naziva kolona (fuzzy matching)
         resolved = resolve_columns(config, df.columns, debug_mode=debug_mode, ducan_naziv=ducan_naziv)
 
-        # Ako maloprodajna nije nađena, pokušaj auto-detect
         if resolved["maloprodajna"] is None:
             candidates = [c for c in df.columns if "maloprod" in c.lower()]
             if candidates:
@@ -231,15 +359,12 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=Fa
                 st.warning(f"{ducan_naziv}: nije pronađena kolona s maloprodajnom cijenom")
                 return rezultati
 
-        # Konzum specifično: eksplicitno isključi "NAJNIŽA CIJENA" kolonu
-        # (nikad ne smije biti akcijska ili maloprodajna)
         for key in ["maloprodajna", "akcijska"]:
             col = resolved.get(key)
             if col and "najni" in col.lower():
                 st.warning(f"{ducan_naziv}: kolona '{col}' izgleda kao NAJNIŽA CIJENA — isključujem!")
                 resolved[key] = None
 
-        # Konvertiraj cijenske kolone u float
         if resolved["maloprodajna"]:
             df[resolved["maloprodajna"]] = df[resolved["maloprodajna"]].apply(convert_price)
         if resolved["akcijska"]:
@@ -250,18 +375,16 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=Fa
             cols_to_show = [c for c in [resolved["naziv"], resolved["maloprodajna"], resolved["akcijska"]] if c]
             st.dataframe(df[cols_to_show].head(3))
 
-        # Izračunaj finalnu cijenu
         df["CIJENA"] = df.apply(lambda row: determine_final_price(row, resolved), axis=1)
 
-        naziv_col    = resolved["naziv"]
-        sifra_col    = resolved["sifra"]
-        barkod_col   = resolved["barkod"]
-        kat_col      = resolved["kategorija"]
-        jed_col      = resolved["jedinica"]
-        mal_col      = resolved["maloprodajna"]
-        akc_col      = resolved["akcijska"]
+        naziv_col  = resolved["naziv"]
+        sifra_col  = resolved["sifra"]
+        barkod_col = resolved["barkod"]
+        kat_col    = resolved["kategorija"]
+        jed_col    = resolved["jedinica"]
+        mal_col    = resolved["maloprodajna"]
+        akc_col    = resolved["akcijska"]
 
-        # Pretraga po barkodu
         if barkod and barkod_col:
             barkod_clean = barkod.strip()
             df[barkod_col] = df[barkod_col].astype(str).str.replace('.0', '', regex=False).str.strip()
@@ -280,7 +403,6 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=Fa
                     "Kategorija": row.get(kat_col, "") if kat_col else ""
                 })
 
-        # Pretraga po pojmovima
         if pojmovi and naziv_col:
             for pojam in pojmovi:
                 if not pojam.strip():
@@ -326,13 +448,12 @@ def create_excel_download(df):
             ws.set_column(i, i, max_len)
     return output.getvalue()
 
-# ──────────────────────────────────────────────────────────────────────
 def main():
     st.markdown("""
-<div style="text-align:center; padding: 2rem 0 1rem 0;">
-    <h1>🛒 Pretraga Cijena</h1>
-    <p style="color: #888;">Najbolje cijene u trgovačkim lancima – Zaprešić
-    (samo kategorije: hrana, piće, kozmetika, sredstva za čišćenje, toaletne potrepštine i proizvodi za kućanstvo)</p>
+<div class="header-banner">
+    <div class="header-title">🛒 Pretraga Cijena</div>
+    <div class="header-subtitle">Najbolje cijene u trgovačkim lancima – Zaprešić
+    (samo kategorije: hrana, piće, kozmetika, sredstva za čišćenje, toaletne potrepštine i proizvodi za kućanstvo)</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -341,22 +462,30 @@ def main():
                                   help="Prikazuje nazive kolona i prvih par redaka za svaki dućan")
 
     st.markdown(r"""
-<div style="background:#1e1e2e; border-radius:10px; padding:1rem 1.5rem; margin-bottom:1.5rem;">
-<b>🔍 Kako pretraživati</b><br><br>
-* Do 6 pojmova ili 1 barkod<br>
-* Bez * → traži na početku naziva<br>
-&nbsp;&nbsp;&nbsp;<code>mlijeko</code> → Mlijeko Dukat, Mlijeko fresh...<br>
-* Bilo gdje u nazivu → koristi *<br>
-&nbsp;&nbsp;&nbsp;<code>*mlijeko*</code> → sve što ima „mlijeko"<br>
-&nbsp;&nbsp;&nbsp;<code>sir ?0%</code> → sir 20%, 30%, 00%...<br><br>
-💡 Brzi trikovi: <code>*kava*</code>, <code>*mlijeko 3.5*</code>, <code>dukat*</code><br>
+<div class="info-box">
+<h3>🔍 Kako pretraživati</h3>
+<ul>
+<li>Do 6 pojmova ili 1 barkod</li>
+<li>Bez * → traži na početku naziva<br>
+&nbsp;&nbsp;<code>mlijeko</code> → Mlijeko Dukat, Mlijeko fresh...<br>
+&nbsp;&nbsp;<code>nutella</code> → Nutella, Nutella B-ready...</li>
+<li>Bilo gdje u nazivu → koristi *<br>
+&nbsp;&nbsp;<code>*mlijeko*</code> → sve što ima „mlijeko"<br>
+&nbsp;&nbsp;<code>*nutella*</code> ili <code>nutella*</code> → svi Nutella proizvodi<br>
+&nbsp;&nbsp;<code>sir ?0%</code> → sir 20%, 30%, 00%...</li>
+</ul>
+💡 Brzi trikovi: <code>*kava*</code>, <code>*mlijeko 3.5*</code>, <code>dukat*</code>, <code>*dukat*</code><br>
 Pretraga ne razlikuje velika/mala slova
 </div>
 """, unsafe_allow_html=True)
 
+    st.markdown('<div class="barcode-box">', unsafe_allow_html=True)
     st.markdown("### 🔢 Pretraga po barkodu")
     barkod_input = st.text_input("Unesite barkod proizvoda",
-                                  placeholder="npr. 3017620422003", key="barkod")
+                                  placeholder="npr. 3017620422003",
+                                  help="Točna pretraga po barkodu - pronalazi samo taj proizvod",
+                                  key="barkod")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("### 🔍 Pretraga po nazivu proizvoda")
     col1, col2 = st.columns(2)
@@ -378,7 +507,7 @@ Pretraga ne razlikuje velika/mala slova
             return
 
         if pojmovi and barkod:
-            st.warning("⚠️ Koristim samo barkod pretragu.")
+            st.warning("⚠️ Možete pretraživati po pojmovima ILI po barkodu, ne oboje istovremeno. Koristim samo barkod pretragu.")
             pojmovi = []
 
         progress = st.progress(0)
@@ -388,8 +517,6 @@ Pretraga ne razlikuje velika/mala slova
 
         for i, (ime, cfg) in enumerate(DUCANI_CONFIG.items()):
             status.text(f"Pretražujem {ime}...")
-            # Deepcopy config da ne mutiramo global
-            import copy
             cfg_copy = copy.deepcopy(cfg)
             rez = pretrazi_ducan(
                 ime, cfg_copy,
@@ -432,15 +559,30 @@ Pretraga ne razlikuje velika/mala slova
         st.markdown("### 📊 Rezultati")
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.metric("Artikala", len(df))
+            st.markdown(f"""
+<div class="stat-card">
+    <div class="stat-number">{len(df)}</div>
+    <div class="stat-label">Artikala</div>
+</div>""", unsafe_allow_html=True)
         with c2:
             min_c = df["Cijena (€)"].min()
-            st.metric("Najjeftinije", f"€{min_c:.2f}" if pd.notna(min_c) else "N/A")
+            min_str = f"€{min_c:.2f}" if pd.notna(min_c) else "N/A"
+            st.markdown(f"""
+<div class="stat-card">
+    <div class="stat-number">{min_str}</div>
+    <div class="stat-label">Najjeftinije</div>
+</div>""", unsafe_allow_html=True)
         with c3:
-            st.metric("Lanaca", df["Trgovački lanac"].nunique())
+            st.markdown(f"""
+<div class="stat-card">
+    <div class="stat-number">{df["Trgovački lanac"].nunique()}</div>
+    <div class="stat-label">Lanaca</div>
+</div>""", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
 
         if barkod:
-            st.markdown(f"### 🏆 Rezultati za barkod **{barkod}**")
+            st.markdown(f"### 🏆 Rezultati za barkod **{barkod}** (sortirano po cijeni)")
         else:
             st.markdown("### 🏆 Najbolje ponude (sortirano po cijeni)")
 
@@ -479,7 +621,7 @@ Pretraga ne razlikuje velika/mala slova
         )
 
     st.markdown("""
-<div style="text-align:center; color:#555; padding:2rem 0 1rem 0; font-size:0.85rem;">
+<div class="footer">
     Izrađeno uz pomoć AI | Cijene ažurirane pon–sub ~8:20
 </div>
 """, unsafe_allow_html=True)
