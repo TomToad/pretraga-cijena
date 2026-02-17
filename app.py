@@ -5,9 +5,6 @@ from io import BytesIO, StringIO
 import dropbox
 from dropbox.exceptions import AuthError
 
-# ──────────────────────────────────────────────────────────────────────
-# KONFIGURACIJA
-# ──────────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Pretraga Cijena | Price Finder",
     page_icon="🛒",
@@ -15,13 +12,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS - tamni elegantni dizajn
-st.markdown("""
-""", unsafe_allow_html=True)
+st.markdown("""<style></style>""", unsafe_allow_html=True)
 
-# ──────────────────────────────────────────────────────────────────────
-# KONFIGURACIJA DUĆANA
-# ──────────────────────────────────────────────────────────────────────
 DUCANI_CONFIG = {
     "Plodine": {
         "filename": "plodine_jucer.csv",
@@ -35,8 +27,7 @@ DUCANI_CONFIG = {
             "maloprodajna": "Maloprodajna cijena",
             "akcijska": "MPC za vrijeme posebnog oblika prodaje",
             "jedinica": "Jedinica mjere"
-        },
-        "price_logic": "fillna"
+        }
     },
     "Eurospin": {
         "filename": "eurospin_jucer.csv",
@@ -50,8 +41,7 @@ DUCANI_CONFIG = {
             "maloprodajna": "MALOPROD.CIJENA(EUR)",
             "akcijska": "MPC_POSEB.OBLIK_PROD",
             "jedinica": "JEDINICA_MJERE"
-        },
-        "price_logic": "eurospin"
+        }
     },
     "Kaufland": {
         "filename": "kaufland_jucer.csv",
@@ -65,8 +55,7 @@ DUCANI_CONFIG = {
             "maloprodajna": None,
             "akcijska": None,
             "jedinica": "jedinica mjere"
-        },
-        "price_logic": "fillna"
+        }
     },
     "Konzum": {
         "filename": "konzum_jucer.csv",
@@ -80,8 +69,7 @@ DUCANI_CONFIG = {
             "maloprodajna": "MALOPRODAJNA CIJENA",
             "akcijska": "MPC ZA VRIJEME POSEBNOG OBLIKA PRODAJE",
             "jedinica": "JEDINICA MJERE"
-        },
-        "price_logic": "fillna"
+        }
     },
     "Lidl": {
         "filename": "lidl_jucer.csv",
@@ -95,8 +83,7 @@ DUCANI_CONFIG = {
             "maloprodajna": "MALOPRODAJNA_CIJENA",
             "akcijska": "MPC_ZA_VRIJEME_POSEBNOG_OBLIKA_PRODAJE",
             "jedinica": "JEDINICA_MJERE"
-        },
-        "price_logic": "fillna"
+        }
     },
     "Spar": {
         "filename": "spar_jucer.csv",
@@ -110,22 +97,61 @@ DUCANI_CONFIG = {
             "maloprodajna": "MPC (EUR)",
             "akcijska": "MPC za vrijeme posebnog oblika prodaje (EUR)",
             "jedinica": "jedinica mjere"
-        },
-        "price_logic": "spar"
+        }
     }
 }
 
-# ──────────────────────────────────────────────────────────────────────
-# HELPER FUNKCIJE
-# ──────────────────────────────────────────────────────────────────────
+# ── KLJUČNA FUNKCIJA: fuzzy pronalaženje kolone ──────────────────────
+def find_column(df_columns, target, debug_name=""):
+    """
+    Pronalazi kolonu u DataFrameu:
+    1. Egzaktno podudaranje (case-insensitive)
+    2. Partial match — target sadržan u nazivu kolone
+    3. Partial match — naziv kolone sadržan u targetu
+    Vraća stvarni naziv kolone ili None.
+    """
+    if target is None:
+        return None
+    target_norm = target.lower().strip()
+    cols_lower = {c.lower().strip(): c for c in df_columns}
+
+    # 1. Egzaktno
+    if target_norm in cols_lower:
+        return cols_lower[target_norm]
+
+    # 2. Target sadržan u nazivu kolone
+    for col_lower, col_orig in cols_lower.items():
+        if target_norm in col_lower:
+            return col_orig
+
+    # 3. Naziv kolone sadržan u targetu
+    for col_lower, col_orig in cols_lower.items():
+        if col_lower in target_norm and len(col_lower) > 4:
+            return col_orig
+
+    return None
+
+def resolve_columns(config, df_columns, debug_mode=False, ducan_naziv=""):
+    """
+    Vraća dict s stvarnim nazivima kolona pronađenih u DataFrameu.
+    Ispisuje debug info ako je debug_mode uključen.
+    """
+    resolved = {}
+    for key, target in config["columns"].items():
+        found = find_column(df_columns, target, debug_name=key)
+        resolved[key] = found
+        if debug_mode:
+            status = "✅" if found else "❌"
+            st.write(f"  {status} `{key}`: traženo=`{target}` → nađeno=`{found}`")
+    return resolved
+
+# ────────────────────────────────────────────────────────────────────────
 def wildcard_to_regex(pattern):
-    """Pretvara wildcard pattern (* i ?) u regex"""
     pattern = re.escape(pattern.lower())
     pattern = pattern.replace(r'\*', '.*').replace(r'\?', '.')
     return '^' + pattern
 
 def convert_price(val):
-    """Konvertira string cijene u float"""
     if pd.isna(val) or val == '':
         return None
     try:
@@ -138,7 +164,6 @@ def convert_price(val):
 
 @st.cache_data(ttl=3600)
 def load_csv_from_dropbox(filename):
-    """Učitava CSV datoteku s Dropboxa"""
     try:
         dbx = dropbox.Dropbox(
             app_key=st.secrets["DROPBOX_APP_KEY"],
@@ -154,36 +179,24 @@ def load_csv_from_dropbox(filename):
         st.error(f"Greška pri učitavanju {filename} s Dropboxa: {e}")
         return None
 
-def determine_final_price(row, config, debug_mode=False):
+def determine_final_price(row, resolved_cols):
     """
-    Određuje finalnu cijenu proizvoda prema logici dućana.
-    Prioritet: akcijska cijena (ako postoji i > 0) -> maloprodajna cijena
+    Prioritet: akcijska (ako > 0) → maloprodajna (ako > 0) → None
+    Koristi resolved_cols (stvarne nazive kolona u DataFrameu).
     """
-    maloprodajna_col = config["columns"]["maloprodajna"]
-    akcijska_col = config["columns"]["akcijska"]
+    mal_col = resolved_cols.get("maloprodajna")
+    akc_col = resolved_cols.get("akcijska")
 
-    maloprodajna = row.get(maloprodajna_col) if (maloprodajna_col and maloprodajna_col in row.index) else None
-    akcijska = row.get(akcijska_col) if (akcijska_col and akcijska_col in row.index) else None
-
-    if debug_mode:
-        st.write(f"Debug - {row.get(config['columns']['naziv'], 'N/A')}")
-        st.write(f"  Maloprodajna: {maloprodajna}")
-        st.write(f"  Akcijska: {akcijska}")
+    maloprodajna = row[mal_col] if (mal_col and mal_col in row.index) else None
+    akcijska     = row[akc_col] if (akc_col and akc_col in row.index) else None
 
     if pd.notna(akcijska) and akcijska > 0:
-        if debug_mode:
-            st.write(f"  ✓ Koristi akcijsku: {akcijska}")
         return akcijska
-
     if pd.notna(maloprodajna) and maloprodajna > 0:
-        if debug_mode:
-            st.write(f"  → Koristi maloprodajnu: {maloprodajna}")
         return maloprodajna
-
     return None
 
 def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=False):
-    """Pretražuje jedan dućan za zadane pojmove ili barkod"""
     rezultati = []
     try:
         content = load_csv_from_dropbox(config["filename"])
@@ -193,94 +206,99 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=Fa
         df = pd.read_csv(
             StringIO(content.decode(config["encoding"])),
             sep=config["separator"],
-            on_bad_lines='skip'
+            on_bad_lines='skip',
+            dtype=str  # sve učitaj kao string, konvertiramo ručno
         )
 
-        # Očisti nazive kolona + ukloni BOM ako postoji
+        # Očisti nazive kolona + ukloni BOM
         df.columns = df.columns.str.strip().str.replace('\ufeff', '', regex=False)
 
-        if debug_mode and ducan_naziv == "Spar":
-            st.write(f"### 🔍 Debug info za {ducan_naziv}")
-            st.write(f"Učitano redaka: {len(df)}")
-            st.write(f"Kolone u CSV-u: {list(df.columns)}")
+        if debug_mode:
+            st.write(f"#### 🔍 {ducan_naziv} — kolone u CSV-u:")
+            st.write(list(df.columns))
 
-        # Pronađi kolonu za maloprodajnu cijenu ako nije definirana
-        if config["columns"]["maloprodajna"] is None:
-            cijene = [c for c in df.columns if "maloprod" in c.lower()]
-            if cijene:
-                config["columns"]["maloprodajna"] = cijene[0]
+        # Rješavanje stvarnih naziva kolona (fuzzy matching)
+        resolved = resolve_columns(config, df.columns, debug_mode=debug_mode, ducan_naziv=ducan_naziv)
+
+        # Ako maloprodajna nije nađena, pokušaj auto-detect
+        if resolved["maloprodajna"] is None:
+            candidates = [c for c in df.columns if "maloprod" in c.lower()]
+            if candidates:
+                resolved["maloprodajna"] = candidates[0]
+                if debug_mode:
+                    st.write(f"  🔧 Auto-detect maloprodajna → `{resolved['maloprodajna']}`")
             else:
                 st.warning(f"{ducan_naziv}: nije pronađena kolona s maloprodajnom cijenom")
                 return rezultati
 
-        # Konvertiraj cijene u numeričke vrijednosti
-        df[config["columns"]["maloprodajna"]] = df[config["columns"]["maloprodajna"]].apply(convert_price)
-        if config["columns"]["akcijska"]:
-            df[config["columns"]["akcijska"]] = df[config["columns"]["akcijska"]].apply(convert_price)
+        # Konzum specifično: eksplicitno isključi "NAJNIŽA CIJENA" kolonu
+        # (nikad ne smije biti akcijska ili maloprodajna)
+        for key in ["maloprodajna", "akcijska"]:
+            col = resolved.get(key)
+            if col and "najni" in col.lower():
+                st.warning(f"{ducan_naziv}: kolona '{col}' izgleda kao NAJNIŽA CIJENA — isključujem!")
+                resolved[key] = None
 
-        if debug_mode and ducan_naziv == "Spar":
-            st.write(f"\n**Primjer prvih 5 redaka s cijenama:**")
-            sample_df = df[[
-                config["columns"]["naziv"],
-                config["columns"]["maloprodajna"],
-                config["columns"]["akcijska"]
-            ]].head()
-            st.dataframe(sample_df)
-            akcijske_count = df[config["columns"]["akcijska"]].notna().sum()
-            st.write(f"\nProizvoda s akcijskom cijenom: {akcijske_count} / {len(df)}")
+        # Konvertiraj cijenske kolone u float
+        if resolved["maloprodajna"]:
+            df[resolved["maloprodajna"]] = df[resolved["maloprodajna"]].apply(convert_price)
+        if resolved["akcijska"]:
+            df[resolved["akcijska"]] = df[resolved["akcijska"]].apply(convert_price)
 
-        # Uvijek koristi prioritet akcijska -> maloprodajna
-        df["CIJENA"] = df.apply(
-            lambda row: determine_final_price(row, config, debug_mode and ducan_naziv == "Spar"),
-            axis=1
-        )
+        if debug_mode:
+            st.write(f"**Primjer prvih 3 retka (cijene):**")
+            cols_to_show = [c for c in [resolved["naziv"], resolved["maloprodajna"], resolved["akcijska"]] if c]
+            st.dataframe(df[cols_to_show].head(3))
 
-        # Pretraži po barkodu (točno podudaranje)
-        if barkod:
+        # Izračunaj finalnu cijenu
+        df["CIJENA"] = df.apply(lambda row: determine_final_price(row, resolved), axis=1)
+
+        naziv_col    = resolved["naziv"]
+        sifra_col    = resolved["sifra"]
+        barkod_col   = resolved["barkod"]
+        kat_col      = resolved["kategorija"]
+        jed_col      = resolved["jedinica"]
+        mal_col      = resolved["maloprodajna"]
+        akc_col      = resolved["akcijska"]
+
+        # Pretraga po barkodu
+        if barkod and barkod_col:
             barkod_clean = barkod.strip()
-            df[config["columns"]["barkod"]] = df[config["columns"]["barkod"]].astype(str).str.replace('.0', '', regex=False)
-            mask = df[config["columns"]["barkod"]] == barkod_clean
-            matched_count = mask.sum()
-            if debug_mode and matched_count > 0:
-                st.write(f"\n**Barkod '{barkod_clean}' - pronađeno: {matched_count} proizvoda**")
+            df[barkod_col] = df[barkod_col].astype(str).str.replace('.0', '', regex=False).str.strip()
+            mask = df[barkod_col] == barkod_clean
             for _, row in df[mask].iterrows():
                 rezultati.append({
                     "Trgovački lanac": ducan_naziv,
                     "Traženi pojam": f"🔢 {barkod_clean}",
-                    "Šifra": row.get(config["columns"]["sifra"], ""),
-                    "Barkod": str(row.get(config["columns"]["barkod"], "")).replace('.0', ''),
-                    "Naziv proizvoda": row[config["columns"]["naziv"]],
+                    "Šifra": row.get(sifra_col, "") if sifra_col else "",
+                    "Barkod": row.get(barkod_col, ""),
+                    "Naziv proizvoda": row.get(naziv_col, ""),
                     "Cijena (€)": row["CIJENA"],
-                    "Maloprodajna (€)": row[config["columns"]["maloprodajna"]],
-                    "Akcijska (€)": row.get(config["columns"]["akcijska"]) if config["columns"]["akcijska"] else None,
-                    "Jedinica mjere": row.get(config["columns"]["jedinica"], ""),
-                    "Kategorija": row.get(config["columns"]["kategorija"], "")
+                    "Maloprodajna (€)": row.get(mal_col) if mal_col else None,
+                    "Akcijska (€)": row.get(akc_col) if akc_col else None,
+                    "Jedinica mjere": row.get(jed_col, "") if jed_col else "",
+                    "Kategorija": row.get(kat_col, "") if kat_col else ""
                 })
 
-        # Pretraži po pojmovima (wildcard)
-        if pojmovi:
+        # Pretraga po pojmovima
+        if pojmovi and naziv_col:
             for pojam in pojmovi:
                 if not pojam.strip():
                     continue
                 regex = wildcard_to_regex(pojam)
-                mask = df[config["columns"]["naziv"]].astype(str).str.lower().str.contains(
-                    regex, na=False, regex=True
-                )
-                matched_count = mask.sum()
-                if debug_mode and ducan_naziv == "Spar" and matched_count > 0:
-                    st.write(f"\n**Pojam '{pojam}' - pronađeno: {matched_count} proizvoda**")
+                mask = df[naziv_col].astype(str).str.lower().str.contains(regex, na=False, regex=True)
                 for _, row in df[mask].iterrows():
                     rezultati.append({
                         "Trgovački lanac": ducan_naziv,
                         "Traženi pojam": pojam,
-                        "Šifra": row.get(config["columns"]["sifra"], ""),
-                        "Barkod": str(row.get(config["columns"]["barkod"], "")).replace('.0', ''),
-                        "Naziv proizvoda": row[config["columns"]["naziv"]],
+                        "Šifra": row.get(sifra_col, "") if sifra_col else "",
+                        "Barkod": str(row.get(barkod_col, "")).replace('.0', '') if barkod_col else "",
+                        "Naziv proizvoda": row.get(naziv_col, ""),
                         "Cijena (€)": row["CIJENA"],
-                        "Maloprodajna (€)": row[config["columns"]["maloprodajna"]],
-                        "Akcijska (€)": row.get(config["columns"]["akcijska"]) if config["columns"]["akcijska"] else None,
-                        "Jedinica mjere": row.get(config["columns"]["jedinica"], ""),
-                        "Kategorija": row.get(config["columns"]["kategorija"], "")
+                        "Maloprodajna (€)": row.get(mal_col) if mal_col else None,
+                        "Akcijska (€)": row.get(akc_col) if akc_col else None,
+                        "Jedinica mjere": row.get(jed_col, "") if jed_col else "",
+                        "Kategorija": row.get(kat_col, "") if kat_col else ""
                     })
 
         return rezultati
@@ -293,16 +311,13 @@ def pretrazi_ducan(ducan_naziv, config, pojmovi=None, barkod=None, debug_mode=Fa
         return rezultati
 
 def create_excel_download(df):
-    """Kreira Excel datoteku za preuzimanje"""
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Rezultati')
         ws = writer.sheets['Rezultati']
         header_fmt = writer.book.add_format({
-            'bold': True,
-            'bg_color': '#667eea',
-            'font_color': 'white',
-            'border': 1
+            'bold': True, 'bg_color': '#667eea',
+            'font_color': 'white', 'border': 1
         })
         for col_num, value in enumerate(df.columns):
             ws.write(0, col_num, value, header_fmt)
@@ -311,8 +326,6 @@ def create_excel_download(df):
             ws.set_column(i, i, max_len)
     return output.getvalue()
 
-# ──────────────────────────────────────────────────────────────────────
-# GLAVNI DIO APLIKACIJE
 # ──────────────────────────────────────────────────────────────────────
 def main():
     st.markdown("""
@@ -324,7 +337,8 @@ def main():
 """, unsafe_allow_html=True)
 
     with st.sidebar:
-        debug_mode = st.checkbox("🐛 Debug mode", value=False, help="Prikazuje dodatne informacije o obradi cijena")
+        debug_mode = st.checkbox("🐛 Debug mode", value=False,
+                                  help="Prikazuje nazive kolona i prvih par redaka za svaki dućan")
 
     st.markdown(r"""
 <div style="background:#1e1e2e; border-radius:10px; padding:1rem 1.5rem; margin-bottom:1.5rem;">
@@ -332,23 +346,17 @@ def main():
 * Do 6 pojmova ili 1 barkod<br>
 * Bez * → traži na početku naziva<br>
 &nbsp;&nbsp;&nbsp;<code>mlijeko</code> → Mlijeko Dukat, Mlijeko fresh...<br>
-&nbsp;&nbsp;&nbsp;<code>nutella</code> → Nutella, Nutella B-ready...<br>
 * Bilo gdje u nazivu → koristi *<br>
 &nbsp;&nbsp;&nbsp;<code>*mlijeko*</code> → sve što ima „mlijeko"<br>
-&nbsp;&nbsp;&nbsp;<code>*nutella*</code> ili <code>nutella*</code> → svi Nutella proizvodi<br>
 &nbsp;&nbsp;&nbsp;<code>sir ?0%</code> → sir 20%, 30%, 00%...<br><br>
-💡 Brzi trikovi: <code>*kava*</code>, <code>*mlijeko 3.5*</code>, <code>dukat*</code>, <code>*dukat*</code><br>
+💡 Brzi trikovi: <code>*kava*</code>, <code>*mlijeko 3.5*</code>, <code>dukat*</code><br>
 Pretraga ne razlikuje velika/mala slova
 </div>
 """, unsafe_allow_html=True)
 
     st.markdown("### 🔢 Pretraga po barkodu")
-    barkod_input = st.text_input(
-        "Unesite barkod proizvoda",
-        placeholder="npr. 3017620422003",
-        help="Točna pretraga po barkodu - pronalazi samo taj proizvod",
-        key="barkod"
-    )
+    barkod_input = st.text_input("Unesite barkod proizvoda",
+                                  placeholder="npr. 3017620422003", key="barkod")
 
     st.markdown("### 🔍 Pretraga po nazivu proizvoda")
     col1, col2 = st.columns(2)
@@ -370,7 +378,7 @@ Pretraga ne razlikuje velika/mala slova
             return
 
         if pojmovi and barkod:
-            st.warning("⚠️ Možete pretraživati po pojmovima ILI po barkodu, ne oboje istovremeno. Koristim samo barkod pretragu.")
+            st.warning("⚠️ Koristim samo barkod pretragu.")
             pojmovi = []
 
         progress = st.progress(0)
@@ -379,12 +387,12 @@ Pretraga ne razlikuje velika/mala slova
         total = len(DUCANI_CONFIG)
 
         for i, (ime, cfg) in enumerate(DUCANI_CONFIG.items()):
-            if barkod:
-                status.text(f"Pretražujem {ime} po barkodu {barkod}...")
-            else:
-                status.text(f"Pretražujem {ime}...")
+            status.text(f"Pretražujem {ime}...")
+            # Deepcopy config da ne mutiramo global
+            import copy
+            cfg_copy = copy.deepcopy(cfg)
             rez = pretrazi_ducan(
-                ime, cfg,
+                ime, cfg_copy,
                 pojmovi=pojmovi if not barkod else None,
                 barkod=barkod,
                 debug_mode=debug_mode
@@ -417,39 +425,33 @@ Pretraga ne razlikuje velika/mala slova
                 "Traženi pojam", "Naziv proizvoda", "Jedinica mjere",
                 "Cijena (€)", "Trgovački lanac", "Šifra", "Barkod", "Kategorija"
             ]
-
-        if not debug_mode:
             df = df.drop(columns=["Maloprodajna (€)", "Akcijska (€)"], errors='ignore')
 
-        df = df[zeljeni_redoslijed]
+        df = df[[c for c in zeljeni_redoslijed if c in df.columns]]
 
         st.markdown("### 📊 Rezultati")
         c1, c2, c3 = st.columns(3)
         with c1:
             st.metric("Artikala", len(df))
         with c2:
-            min_cijena = df["Cijena (€)"].min()
-            st.metric("Najjeftinije", f"€{min_cijena:.2f}" if pd.notna(min_cijena) else "N/A")
+            min_c = df["Cijena (€)"].min()
+            st.metric("Najjeftinije", f"€{min_c:.2f}" if pd.notna(min_c) else "N/A")
         with c3:
             st.metric("Lanaca", df["Trgovački lanac"].nunique())
 
         if barkod:
-            st.markdown(f"### 🏆 Rezultati za barkod **{barkod}** (sortirano po cijeni)")
+            st.markdown(f"### 🏆 Rezultati za barkod **{barkod}**")
         else:
             st.markdown("### 🏆 Najbolje ponude (sortirano po cijeni)")
 
         df_show = df.copy()
         df_show["Cijena (€)"] = df_show["Cijena (€)"].apply(
-            lambda x: f"€{x:.2f}" if pd.notna(x) else ""
-        )
+            lambda x: f"€{x:.2f}" if pd.notna(x) else "")
         if debug_mode:
-            df_show["Maloprodajna (€)"] = df_show["Maloprodajna (€)"].apply(
-                lambda x: f"€{x:.2f}" if pd.notna(x) else ""
-            )
-            df_show["Akcijska (€)"] = df_show["Akcijska (€)"].apply(
-                lambda x: f"€{x:.2f}" if pd.notna(x) else ""
-            )
-
+            for col in ["Maloprodajna (€)", "Akcijska (€)"]:
+                if col in df_show.columns:
+                    df_show[col] = df_show[col].apply(
+                        lambda x: f"€{x:.2f}" if pd.notna(x) else "")
         df_show["Šifra"] = df_show["Šifra"].astype(str).str.replace(r'\.0$', '', regex=True)
 
         st.dataframe(
@@ -467,13 +469,10 @@ Pretraga ne razlikuje velika/mala slova
         )
 
         st.markdown("### 💾 Preuzmi rezultate")
-        df_excel = df.copy()
-        if "Maloprodajna (€)" in df_excel.columns:
-            df_excel = df_excel.drop(columns=["Maloprodajna (€)", "Akcijska (€)"], errors='ignore')
+        df_excel = df.drop(columns=["Maloprodajna (€)", "Akcijska (€)"], errors='ignore')
         excel = create_excel_download(df_excel)
         st.download_button(
-            "📥 Preuzmi Excel",
-            excel,
+            "📥 Preuzmi Excel", excel,
             "rezultati_cijene.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
