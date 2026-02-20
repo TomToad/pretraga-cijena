@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcode Scanner</title>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            opacity: 0.8;
+            font-size: 1.1em;
+        }
+        
+        #reader {
+            border: 3px solid #667eea;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .result-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .result-container.show {
+            display: block;
+        }
+        
+        .result-barcode {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .result-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+        
+        .btn-copy {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-back {
+            background: #f5576c;
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .close-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #f5576c;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
+        }
+        
+        .close-btn:hover {
+            background: #ff6b7f;
+            transform: scale(1.1);
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            text-align: center;
+            opacity: 0.9;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .loading {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #667eea;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <button class="close-btn" onclick="goBack()">✕</button>
+    
+    <div class="container">
+        <div class="header">
+            <h1>📱 Barcode Scanner</h1>
+            <p>Usmjeri kameru prema barkodu proizvoda</p>
+        </div>
+        
+        <div id="reader"></div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px;">Pokrećem kameru...</p>
+        </div>
+        
+        <div id="result" class="result-container">
+            <p style="opacity: 0.9;">✓ Barkod skeniran!</p>
+            <div class="result-barcode" id="barcode-display"></div>
+            <div class="result-actions">
+                <button class="btn btn-copy" onclick="copyBarcode()">📋 Kopiraj</button>
+                <button class="btn btn-back" onclick="returnToApp()">↩️ Natrag u App</button>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <p>💡 <strong>Savjet:</strong> Drži telefon na udaljenosti 10-15cm od barkoda</p>
+        </div>
+    </div>
+    
+    <script>
+        let html5QrCode;
+        let scannedBarcode = '';
+        let returnUrl = new URLSearchParams(window.location.search).get('return') || 'about:blank';
+        
+        function startScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            
+            const config = {
+                fps: 10,
+                qrbox: { width: 250, height: 150 },
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.CODE_39
+                ]
+            };
+            
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                onScanSuccess,
+                onScanError
+            ).then(() => {
+                document.getElementById('loading').style.display = 'none';
+            }).catch(err => {
+                document.getElementById('loading').innerHTML = 
+                    '<p style="color: #f5576c;">❌ Ne mogu pristupiti kameri.<br>Provjerite dozvole.</p>';
+                console.error("Camera error:", err);
+            });
+        }
+        
+        function onScanSuccess(decodedText) {
+            scannedBarcode = decodedText;
+            
+            // Stop scanner
+            html5QrCode.stop().then(() => {
+                // Hide scanner, show result
+                document.getElementById('reader').style.display = 'none';
+                document.getElementById('result').classList.add('show');
+                document.getElementById('barcode-display').textContent = decodedText;
+            });
+        }
+        
+        function onScanError(error) {
+            // Ignore continuous scan errors
+        }
+        
+        function copyBarcode() {
+            navigator.clipboard.writeText(scannedBarcode).then(() => {
+                alert('Barkod kopiran u clipboard!\n\n' + scannedBarcode);
+            });
+        }
+        
+        function returnToApp() {
+            // Return to Streamlit app with barcode in URL
+            if (returnUrl && returnUrl !== 'about:blank') {
+                window.location.href = returnUrl + '?barcode=' + encodeURIComponent(scannedBarcode);
+            } else {
+                window.close();
+            }
+        }
+        
+        function goBack() {
+            if (confirm('Želite li zatvoriti scanner?')) {
+                if (returnUrl && returnUrl !== 'about:blank') {
+                    window.location.href = returnUrl;
+                } else {
+                    window.close();
+                }
+            }
+        }
+        
+        // Start scanner when page loads
+        window.addEventListener('load', startScanner);
+    </script>
+</body>
+</html>
