@@ -449,27 +449,16 @@ def main():
     )
     
     # Scanner button - opens external scanner page
-    # 
-    # TODO: Upload barcode_scanner.html na Netlify Drop ili GitHub Pages
-    # Onda zamijeni URL ispod sa pravim URL-om!
-    # 
-    # Netlify Drop: https://app.netlify.com/drop
-    # GitHub Pages: Settings → Pages u tvom repo-u
-    #
+    
     scanner_url = "https://tomtoad.github.io/pretraga-cijena/barcode_scanner.html"
     
-    # Automatski detektiraj return URL
-    try:
-        import urllib.parse
-        # Try to get current URL from query params or use root
-        current_url = st.query_params.get("return", "/")
-        if not current_url or current_url == "/":
-            # Default to root if not available
-            current_url = "/"
-    except:
-        current_url = "/"
+    import urllib.parse
+
+
+    return_url = urllib.parse.quote(
+    "https://pretraga-cijena-ijrfwjxsfrkvrz7nxathny.streamlit.app/"
+)
     
-    return_url = urllib.parse.quote(str(current_url))
     
     st.markdown(f"""
     <a href="{scanner_url}?return={return_url}" target="_blank" style="text-decoration: none;">
