@@ -190,9 +190,10 @@
         <div id="result" class="result-container">
             <p style="opacity: 0.9;">✓ Barkod skeniran!</p>
             <div class="result-barcode" id="barcode-display"></div>
+            <p style="opacity: 0.8; margin: 10px 0; font-size: 0.9em;">Kopiraj barkod pa zatvori tab</p>
             <div class="result-actions">
                 <button class="btn btn-copy" onclick="copyBarcode()">📋 Kopiraj</button>
-                <button class="btn btn-back" onclick="returnToApp()">↩️ Natrag u App</button>
+                <button class="btn btn-back" onclick="closeTab()">↩️ Idi u App</button>
             </div>
         </div>
         
@@ -202,9 +203,8 @@
     </div>
     
     <script>
-        let html5QrCode;
+        let html5QrCode = null;
         let scannedBarcode = '';
-        let returnUrl = new URLSearchParams(window.location.search).get('return') || 'about:blank';
         
         function startScanner() {
             html5QrCode = new Html5Qrcode("reader");
@@ -254,26 +254,21 @@
         
         function copyBarcode() {
             navigator.clipboard.writeText(scannedBarcode).then(() => {
-                alert('Barkod kopiran u clipboard!\n\n' + scannedBarcode);
+                alert('✅ Barkod kopiran!\n\n' + scannedBarcode);
+            }).catch(() => {
+                alert('Barkod: ' + scannedBarcode);
             });
         }
         
-        function returnToApp() {
-            // Return to Streamlit app with barcode in URL
-            if (returnUrl && returnUrl !== 'about:blank') {
-                window.location.href = returnUrl + '?barcode=' + encodeURIComponent(scannedBarcode);
-            } else {
-                window.close();
-            }
+        function closeTab() {
+            // TODO: Zamijeni TVOJ-STREAMLIT-URL.streamlit.app sa pravim URL-om tvoje app-e!
+            const streamlitUrl = 'https://pretraga-cijena-ijrfwjxsfrkvrz7nxathny.streamlit.app/?barcode=' + encodeURIComponent(scannedBarcode);
+            window.open(streamlitUrl, '_self');
         }
         
         function goBack() {
             if (confirm('Želite li zatvoriti scanner?')) {
-                if (returnUrl && returnUrl !== 'about:blank') {
-                    window.location.href = returnUrl;
-                } else {
-                    window.close();
-                }
+                window.close();
             }
         }
         

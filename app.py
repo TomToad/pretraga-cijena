@@ -452,21 +452,8 @@ def main():
     # HTML scanner je hostan na GitHub Pages
     scanner_url = "https://tomtoad.github.io/pretraga-cijena/barcode_scanner.html"
     
-    # Automatski detektiraj return URL
-    try:
-        import urllib.parse
-        # Try to get current URL from query params or use root
-        current_url = st.query_params.get("return", "/")
-        if not current_url or current_url == "/":
-            # Default to root if not available
-            current_url = "/"
-    except:
-        current_url = "/"
-    
-    return_url = urllib.parse.quote(str(current_url))
-    
     st.markdown(f"""
-    <a href="{scanner_url}?return={return_url}" target="_blank" style="text-decoration: none;">
+    <a href="{scanner_url}" target="_blank" style="text-decoration: none;">
         <button style="
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
             color: white;
@@ -483,7 +470,7 @@ def main():
         </button>
     </a>
     <p style="text-align: center; margin-top: 10px; opacity: 0.8; font-size: 0.9em;">
-        Gumb otvara scanner u novom tabu
+        Skeniraj → Kopiraj → Vrati se ovdje → Paste u polje
     </p>
     """, unsafe_allow_html=True)
     
