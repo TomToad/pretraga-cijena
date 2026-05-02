@@ -210,6 +210,22 @@ DUCANI_CONFIG = {
         },
         "price_logic": "fillna"
     },
+
+    "Konzum WG": {
+    "filename": "jablanovec_jucer.csv",
+    "separator": ",",
+    "encoding": "utf-8",
+    "columns": {
+        "naziv": "NAZIV PROIZVODA",
+        "sifra": "ŠIFRA PROIZVODA",
+        "barkod": "BARKOD",
+        "kategorija": "KATEGORIJA PROIZVODA",
+        "maloprodajna": "MALOPRODAJNA CIJENA",
+        "akcijska": "MPC ZA VRIJEME POSEBNOG OBLIKA PRODAJE",
+        "jedinica": "JEDINICA MJERE"
+    },
+    "price_logic": "fillna"
+    },
     "Lidl": {
         "filename": "lidl_jucer.csv",
         "separator": ",",
