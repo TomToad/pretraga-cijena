@@ -610,7 +610,7 @@ def main():
     
     st.markdown("""
 <div class="footer">
-    Izrađeno uz pomoć AI  |  Cijene ažurirane pon–sub ~8:20
+    Cijene ažurirane pon–sub ~9:20
 </div>
     """, unsafe_allow_html=True)
 
