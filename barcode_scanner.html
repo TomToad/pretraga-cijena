@@ -81,6 +81,8 @@
             display: flex;
             gap: 10px;
             justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
         }
         
         .btn {
@@ -101,6 +103,21 @@
         .btn-back {
             background: #f5576c;
             color: white;
+            order: 1;
+        }
+
+        .btn-app {
+            background: #16a085;
+            color: white;
+            order: 2;
+            font-size: 1.15em;
+            padding: 16px 30px;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .btn-copy {
+            order: 3;
         }
         
         .btn:hover {
@@ -194,7 +211,7 @@
             <div class="result-actions">
                 <button class="btn btn-copy" onclick="copyBarcode()">📋 Kopiraj</button>
                 <button class="btn btn-back" onclick="restartScanner()">🔄 Ponovno skeniraj</button>
-                <button class="btn btn-back" onclick="closeTab()">➡️ Idi u App</button>
+                <button class="btn btn-app" onclick="closeTab()">➡️ Idi u App</button>
             </div>
         </div>
         
