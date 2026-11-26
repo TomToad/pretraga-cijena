@@ -190,10 +190,11 @@
         <div id="result" class="result-container">
             <p style="opacity: 0.9;">✓ Barkod skeniran!</p>
             <div class="result-barcode" id="barcode-display"></div>
-            <p style="opacity: 0.8; margin: 10px 0; font-size: 0.9em;">Kopiraj barkod pa zatvori tab</p>
+            <p style="opacity: 0.8; margin: 10px 0; font-size: 0.9em;">Provjeri barkod i odaberi što želiš dalje</p>
             <div class="result-actions">
                 <button class="btn btn-copy" onclick="copyBarcode()">📋 Kopiraj</button>
-                <button class="btn btn-back" onclick="closeTab()">↩️ Idi u App</button>
+                <button class="btn btn-back" onclick="restartScanner()">🔄 Ponovno skeniraj</button>
+                <button class="btn btn-back" onclick="closeTab()">➡️ Idi u App</button>
             </div>
         </div>
         
@@ -207,7 +208,9 @@
         let scannedBarcode = '';
         
         function startScanner() {
-            html5QrCode = new Html5Qrcode("reader");
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
             
             const config = {
                 fps: 10,
@@ -252,6 +255,13 @@
             // Ignore continuous scan errors
         }
         
+        function restartScanner() {
+            scannedBarcode = '';
+            document.getElementById('result').classList.remove('show');
+            document.getElementById('reader').style.display = 'block';
+            startScanner();
+        }
+
         function copyBarcode() {
             navigator.clipboard.writeText(scannedBarcode).then(() => {
                 alert('✅ Barkod kopiran!\n\n' + scannedBarcode);
